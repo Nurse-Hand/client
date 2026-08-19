@@ -4,6 +4,8 @@ import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import BottomTabBar from './src/components/BottomTabBar';
 import HomeScreen from './src/screens/HomeScreen';
+import PatientListScreen from './src/screens/PatientListScreen';
+import PatientDetailScreen from './src/screens/PatientDetailScreen';
 import { TabKey } from './src/types';
 import { colors, font } from './src/theme';
 
@@ -17,6 +19,22 @@ function Placeholder({ label }: { label: string }) {
 
 export default function App() {
   const [tab, setTab] = useState<TabKey>('home');
+  const [detailPatientId, setDetailPatientId] = useState<string | null>(null);
+
+  const changeTab = (next: TabKey) => {
+    setDetailPatientId(null);
+    setTab(next);
+  };
+
+  const renderPatientTab = () =>
+    detailPatientId ? (
+      <PatientDetailScreen
+        patientId={detailPatientId}
+        onBack={() => setDetailPatientId(null)}
+      />
+    ) : (
+      <PatientListScreen onSelect={setDetailPatientId} />
+    );
 
   return (
     <SafeAreaProvider>
@@ -24,12 +42,12 @@ export default function App() {
       <View style={styles.root}>
         <View style={styles.body}>
           {tab === 'home' && <HomeScreen />}
-          {tab === 'patient' && <Placeholder label="환자" />}
+          {tab === 'patient' && renderPatientTab()}
           {tab === 'task' && <Placeholder label="업무" />}
           {tab === 'handoff' && <Placeholder label="인수인계" />}
           {tab === 'my' && <Placeholder label="마이" />}
         </View>
-        <BottomTabBar current={tab} onChange={setTab} />
+        <BottomTabBar current={tab} onChange={changeTab} />
       </View>
     </SafeAreaProvider>
   );
