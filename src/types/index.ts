@@ -99,3 +99,35 @@ export interface DaySummary {
     aiSummary: string[];
     events: TimelineEvent[];
 }
+
+export type HandoffSendStatus = 'NOT_SENT' | 'SENT';
+
+export interface HandoffRecord {
+    id: string;
+    date: string;
+    weekday: string;
+    shift: ShiftType;
+    receiverName: string | null;
+    sendStatus: HandoffSendStatus;
+    isToday: boolean;
+}
+
+export const SHIFT_LABEL: Record<ShiftType, string> = {
+    DAY: 'Day',
+    EVENING: 'Evening',
+    NIGHT: 'Night',
+};
+
+export const SHIFT_EMOJI: Record<ShiftType, string> = {
+    DAY: '☀️',
+    EVENING: '🌇',
+    NIGHT: '🌙',
+};
+
+export type PendingCheckKind = 'PATIENT_MATCH' | 'AI_GUESS';
+
+export interface PendingCheck {
+    kind: PendingCheckKind;
+    label: string;
+    count: number;
+}

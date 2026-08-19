@@ -2,8 +2,8 @@ import { View, Text, Pressable, ScrollView, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Card from '../components/Card';
-import { homeSummary, SHIFT_LABEL, SHIFT_EMOJI } from '../mocks/home';
-import { QUICK_RECORD_LABEL, QuickRecordType } from '../types';
+import { homeSummary } from '../mocks/home';
+import { QUICK_RECORD_LABEL, QuickRecordType, SHIFT_LABEL, SHIFT_EMOJI } from '../types';
 import { colors, spacing, radius, font } from '../theme';
 
 const QUICK_TYPES = Object.keys(QUICK_RECORD_LABEL) as QuickRecordType[];
