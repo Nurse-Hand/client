@@ -26,3 +26,7 @@ export const font = {
     small: { fontSize: 12, fontWeight: '500' as const },
     tiny: { fontSize: 11, fontWeight: '600' as const },
 };
+
+export const layout = {
+    screenTopGap: 30,
+};

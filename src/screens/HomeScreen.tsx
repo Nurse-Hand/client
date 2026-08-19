@@ -54,9 +54,6 @@ export default function HomeScreen() {
             </Card>
 
             <Card title="빠른 기록" actionLabel="기록 수정" style={styles.quickCard}>
-                <View style={styles.avatar}>
-                    <Text style={styles.avatarText}>{nurseName[0]}</Text>
-                </View>
                 <Text style={styles.desc}>유형을 눌러 간단하게 메모 할 수 있어요</Text>
                 <View style={styles.chipGrid}>
                     {QUICK_TYPES.map((type) => (

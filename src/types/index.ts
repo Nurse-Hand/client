@@ -57,3 +57,45 @@ export interface HomeSummary {
     hasTranscript: boolean;
     summaryNeedsReview: boolean;
 }
+
+export type PatientFlag = 'CAUTION' | 'NEW' | 'DISCHARGE_SOON';
+
+export const PATIENT_FLAG_LABEL: Record<PatientFlag, string> = {
+    CAUTION: '주의',
+    NEW: '신규',
+    DISCHARGE_SOON: '퇴원 예정',
+};
+
+export interface Patient {
+    id: string;
+    room: string;
+    bedNo: string;
+    name: string;
+    department: string;
+    admissionDay: number;
+    condition: string;
+    flags: PatientFlag[];
+}
+
+export interface PatientDetail extends Patient {
+    patientNo: string;
+    admittedAt: string;
+    baseInfo: string;
+}
+
+export type TimelineKind = 'HANDOFF' | 'EVENT';
+
+export interface TimelineEvent {
+    id: string;
+    kind: TimelineKind;
+    title: string;
+    time: string;
+    lines: string[];
+    alert?: string;
+}
+
+export interface DaySummary {
+    date: string;
+    aiSummary: string[];
+    events: TimelineEvent[];
+}
