@@ -1,9 +1,26 @@
-import { useState } from 'react';
-import { View, Text, Image, Pressable, ScrollView, StyleSheet } from 'react-native';
+import { useState, useEffect, useMemo, useCallback } from 'react';
+import {
+    View, Text, Image, Pressable, ScrollView,
+    ActivityIndicator, StyleSheet,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { patients, patientDetails, daySummary, weekDays } from '../mocks/patients';
-import { PATIENT_FLAG_LABEL, TimelineEvent } from '../types';
+import {
+    fetchPatient, fetchPatientTimeline, admissionDayOf,
+    dateKeyOf, timeOf, ApiPatient, ApiTimelineEvent, TimelineEventType,
+} from '../api/patients';
+import { mockDaySummary, mockAlerts } from '../mocks/patients';
 import { colors, spacing, radius, font } from '../theme';
+
+const TYPE_LABEL: Record<TimelineEventType, string> = {
+    PATIENT_STATUS: '활력징후',
+    PAIN: '통증',
+    TREATMENT: '처치',
+    DIET: '식이',
+    ACTIVITY: '활동',
+    OBSERVATION: '관찰사항',
+};
+
+const WEEKDAY = ['일', '월', '화', '수', '목', '금', '토'];
 
 interface Props {
     patientId: string;
@@ -12,20 +29,95 @@ interface Props {
 
 export default function PatientDetailScreen({ patientId, onBack }: Props) {
     const insets = useSafeAreaInsets();
-    const [selectedDate, setSelectedDate] = useState(9);
 
-    const base = patients.find((p) => p.id === patientId)!;
-    const detail = patientDetails[patientId];
+    const [patient, setPatient] = useState<ApiPatient | null>(null);
+    const [events, setEvents] = useState<ApiTimelineEvent[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+
+    const [weekOffset, setWeekOffset] = useState(0);
+    const [selectedKey, setSelectedKey] = useState(dateKeyOf(new Date().toISOString()));
+
+    const load = useCallback(async () => {
+        try {
+            setError(null);
+            const [p, t] = await Promise.all([
+                fetchPatient(patientId),
+                fetchPatientTimeline(patientId),
+            ]);
+            setPatient(p);
+            setEvents(t.items ?? []);
+        } catch (e: any) {
+            setError(e.message ?? '환자 정보를 불러오지 못했어요');
+        } finally {
+            setLoading(false);
+        }
+    }, [patientId]);
+
+    useEffect(() => {
+        load();
+    }, [load]);
+
+    const weekDays = useMemo(() => {
+        const base = new Date();
+        base.setHours(0, 0, 0, 0);
+        base.setDate(base.getDate() - base.getDay() + weekOffset * 7);
+
+        return Array.from({ length: 7 }).map((_, i) => {
+            const d = new Date(base);
+            d.setDate(base.getDate() + i);
+            return {
+                key: dateKeyOf(d.toISOString()),
+                label: WEEKDAY[d.getDay()],
+                date: d.getDate(),
+                month: d.getMonth() + 1,
+            };
+        });
+    }, [weekOffset]);
+
+    const grouped = useMemo(() => {
+        const map: Record<string, ApiTimelineEvent[]> = {};
+        for (const e of events) {
+            const key = dateKeyOf(e.occurredAt);
+            if (!map[key]) map[key] = [];
+            map[key].push(e);
+        }
+        for (const key of Object.keys(map)) {
+            map[key].sort((a, b) => a.occurredAt.localeCompare(b.occurredAt));
+        }
+        return map;
+    }, [events]);
+
+    const dayEvents = grouped[selectedKey] ?? [];
+    const weekLabel = `${weekDays[0].month}월 ${weekDays[0].date}일 ~ ${weekDays[6].month}월 ${weekDays[6].date}일`;
+
+    if (loading) {
+        return (
+            <View style={[styles.root, styles.center, { paddingTop: insets.top }]}>
+                <ActivityIndicator color={colors.primary} />
+            </View>
+        );
+    }
+
+    if (error || !patient) {
+        return (
+            <View style={[styles.root, { paddingTop: insets.top + spacing.sm }]}>
+                <NavBar onBack={onBack} />
+                <View style={styles.center}>
+                    <Text style={styles.errorText}>{error ?? '환자를 찾을 수 없어요'}</Text>
+                    <Pressable style={styles.retryBtn} onPress={load}>
+                        <Text style={styles.retryText}>다시 시도</Text>
+                    </Pressable>
+                </View>
+            </View>
+        );
+    }
+
+    const day = admissionDayOf(patient.admittedAt);
 
     return (
         <View style={[styles.root, { paddingTop: insets.top + spacing.sm }]}>
-            <View style={styles.navBar}>
-                <Pressable onPress={onBack} hitSlop={12}>
-                    <Text style={styles.backIcon}>‹</Text>
-                </Pressable>
-                <Text style={styles.navTitle}>환자 상세</Text>
-                <View style={styles.navSpacer} />
-            </View>
+            <NavBar onBack={onBack} />
 
             <ScrollView
                 contentContainerStyle={styles.content}
@@ -33,7 +125,7 @@ export default function PatientDetailScreen({ patientId, onBack }: Props) {
             >
                 <View style={styles.card}>
                     <View style={styles.infoTop}>
-                        <Text style={styles.bedText}>{base.room}호  {base.bedNo}번 침상</Text>
+                        <Text style={styles.bedText}>{patient.roomLabel ?? '병실 미지정'}</Text>
                         <Pressable style={styles.editBtn} hitSlop={8}>
                             <Image
                                 source={require('../../assets/icons/edit.png')}
@@ -44,24 +136,29 @@ export default function PatientDetailScreen({ patientId, onBack }: Props) {
                     </View>
 
                     <View style={styles.nameRow}>
-                        <Text style={styles.name}>{base.name}</Text>
-                        {base.flags.map((flag) => (
-                            <View key={flag} style={styles.flag}>
-                                <Text style={styles.flagText}>{PATIENT_FLAG_LABEL[flag]}</Text>
+                        <Text style={styles.name}>{patient.displayName}</Text>
+                        {patient.statusLabel ? (
+                            <View style={styles.flag}>
+                                <Text style={styles.flagText}>{patient.statusLabel}</Text>
                             </View>
-                        ))}
+                        ) : null}
                     </View>
 
                     <View style={styles.cardDivider} />
 
                     <View style={styles.infoGrid}>
-                        <InfoCell label="환자 번호" value={detail?.patientNo ?? '-'} />
-                        <InfoCell label="진료과" value={base.department} />
-                        <InfoCell label="입원일" value={detail?.admittedAt ?? '-'} />
+                        <InfoCell label="진료과" value={patient.department ?? '-'} />
+                        <InfoCell
+                            label="입원일"
+                            value={patient.admittedAt ? patient.admittedAt.slice(0, 10).replace(/-/g, '.') : '-'}
+                        />
+                        <InfoCell label="입원 경과" value={day ? `${day}일차` : '-'} />
                     </View>
 
                     <Text style={styles.infoLabel}>기본정보</Text>
-                    <Text style={styles.baseInfo}>{detail?.baseInfo ?? base.condition}</Text>
+                    <Text style={styles.baseInfo}>
+                        {patient.baselineSummary ?? '등록된 기본정보가 없습니다'}
+                    </Text>
                 </View>
 
                 <View style={styles.card}>
@@ -80,20 +177,26 @@ export default function PatientDetailScreen({ patientId, onBack }: Props) {
                     </View>
 
                     <View style={styles.weekNav}>
-                        <Pressable hitSlop={12}><Text style={styles.weekArrow}>‹</Text></Pressable>
-                        <Text style={styles.weekLabel}>8월 첫째 주</Text>
-                        <Pressable hitSlop={12}><Text style={styles.weekArrow}>›</Text></Pressable>
+                        <Pressable hitSlop={12} onPress={() => setWeekOffset((w) => w - 1)}>
+                            <Text style={styles.weekArrow}>‹</Text>
+                        </Pressable>
+                        <Text style={styles.weekLabel}>{weekLabel}</Text>
+                        <Pressable hitSlop={12} onPress={() => setWeekOffset((w) => w + 1)}>
+                            <Text style={styles.weekArrow}>›</Text>
+                        </Pressable>
                     </View>
 
                     <View style={styles.dayRow}>
                         {weekDays.map((d) => {
-                            const active = d.date === selectedDate;
+                            const active = d.key === selectedKey;
+                            const has = (grouped[d.key]?.length ?? 0) > 0;
                             return (
-                                <Pressable key={d.date} style={styles.dayCell} onPress={() => setSelectedDate(d.date)}>
+                                <Pressable key={d.key} style={styles.dayCell} onPress={() => setSelectedKey(d.key)}>
                                     <Text style={[styles.dayLabel, active && styles.dayLabelActive]}>{d.label}</Text>
                                     <View style={[styles.dayBadge, active && styles.dayBadgeActive]}>
                                         <Text style={[styles.dayDate, active && styles.dayDateActive]}>{d.date}</Text>
                                     </View>
+                                    <View style={[styles.dayDot, has && styles.dayDotOn]} />
                                 </Pressable>
                             );
                         })}
@@ -110,10 +213,10 @@ export default function PatientDetailScreen({ patientId, onBack }: Props) {
                         />
                     </View>
 
-                    {daySummary.aiSummary.length === 0 ? (
+                    {dayEvents.length === 0 ? (
                         <Text style={styles.aiEmpty}>요약할 기록이 없습니다</Text>
                     ) : (
-                        daySummary.aiSummary.map((line, i) => (
+                        mockDaySummary.map((line, i) => (
                             <Text key={i} style={styles.aiLine}>{line}</Text>
                         ))
                     )}
@@ -121,11 +224,15 @@ export default function PatientDetailScreen({ patientId, onBack }: Props) {
                     <View style={styles.cardDivider} />
 
                     <View style={styles.timeline}>
-                        {daySummary.events.length === 0 ? (
+                        {dayEvents.length === 0 ? (
                             <Text style={styles.timelineEmpty}>기록이 없습니다</Text>
                         ) : (
-                            daySummary.events.map((e, i) => (
-                                <TimelineRow key={e.id} event={e} isLast={i === daySummary.events.length - 1} />
+                            dayEvents.map((e, i) => (
+                                <TimelineRow
+                                    key={e.timelineEventId}
+                                    event={e}
+                                    isLast={i === dayEvents.length - 1}
+                                />
                             ))
                         )}
                     </View>
@@ -139,6 +246,18 @@ export default function PatientDetailScreen({ patientId, onBack }: Props) {
     );
 }
 
+function NavBar({ onBack }: { onBack: () => void }) {
+    return (
+        <View style={styles.navBar}>
+            <Pressable onPress={onBack} hitSlop={12}>
+                <Text style={styles.backIcon}>‹</Text>
+            </Pressable>
+            <Text style={styles.navTitle}>환자 상세</Text>
+            <View style={styles.navSpacer} />
+        </View>
+    );
+}
+
 function InfoCell({ label, value }: { label: string; value: string }) {
     return (
         <View style={styles.infoCell}>
@@ -148,8 +267,10 @@ function InfoCell({ label, value }: { label: string; value: string }) {
     );
 }
 
-function TimelineRow({ event, isLast }: { event: TimelineEvent; isLast: boolean }) {
-    const highlight = event.kind === 'HANDOFF';
+function TimelineRow({ event, isLast }: { event: ApiTimelineEvent; isLast: boolean }) {
+    const highlight = event.source !== 'MANUAL';
+    const alert = mockAlerts[event.type];
+
     return (
         <View style={styles.tlRow}>
             <View style={styles.tlRail}>
@@ -160,17 +281,15 @@ function TimelineRow({ event, isLast }: { event: TimelineEvent; isLast: boolean 
             <View style={styles.tlBody}>
                 <View style={[styles.tlCard, highlight && styles.tlCardHighlight]}>
                     <View style={styles.tlHead}>
-                        <Text style={styles.tlTitle}>{event.title}</Text>
-                        <Text style={styles.tlTime}>{event.time}</Text>
+                        <Text style={styles.tlTitle}>{TYPE_LABEL[event.type] ?? event.type}</Text>
+                        <Text style={styles.tlTime}>{timeOf(event.occurredAt)}</Text>
                     </View>
-                    {event.lines.map((line, i) => (
-                        <Text key={i} style={styles.tlLineText}>{line}</Text>
-                    ))}
+                    <Text style={styles.tlLineText}>{event.summary}</Text>
                 </View>
 
-                {event.alert ? (
+                {alert ? (
                     <View style={styles.alertBox}>
-                        <Text style={styles.alertText}>⚠ {event.alert}</Text>
+                        <Text style={styles.alertText}>⚠ {alert}</Text>
                     </View>
                 ) : null}
             </View>
@@ -181,6 +300,7 @@ function TimelineRow({ event, isLast }: { event: TimelineEvent; isLast: boolean 
 const styles = StyleSheet.create({
     root: { flex: 1, backgroundColor: colors.bg },
     flex: { flex: 1 },
+    center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.lg },
 
     navBar: {
         flexDirection: 'row',
@@ -234,14 +354,14 @@ const styles = StyleSheet.create({
     calIcon: { width: 20, height: 20 },
 
     weekNav: {
-        flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-        gap: spacing.xl, marginBottom: spacing.lg,
+        flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+        marginBottom: spacing.lg,
     },
-    weekArrow: { fontSize: 22, color: colors.textSub },
-    weekLabel: { ...font.h2, color: colors.text },
+    weekArrow: { fontSize: 22, color: colors.textSub, paddingHorizontal: spacing.md },
+    weekLabel: { fontSize: 15, fontWeight: '700', color: colors.text },
 
     dayRow: { flexDirection: 'row' },
-    dayCell: { flex: 1, alignItems: 'center', gap: spacing.sm },
+    dayCell: { flex: 1, alignItems: 'center', gap: spacing.xs },
     dayLabel: { ...font.small, color: colors.textDim },
     dayLabelActive: { color: colors.primary },
     dayBadge: {
@@ -251,6 +371,8 @@ const styles = StyleSheet.create({
     dayBadgeActive: { backgroundColor: colors.primarySoft },
     dayDate: { ...font.body, color: colors.textSub },
     dayDateActive: { color: colors.primary, fontWeight: '700' },
+    dayDot: { width: 4, height: 4, borderRadius: 2, backgroundColor: 'transparent' },
+    dayDotOn: { backgroundColor: colors.primary },
 
     aiHead: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.md },
     sparkle: { width: 18, height: 18 },
@@ -272,9 +394,7 @@ const styles = StyleSheet.create({
     tlLine: { flex: 1, width: 2, backgroundColor: colors.primary },
 
     tlBody: { flex: 1, marginLeft: spacing.md, marginBottom: spacing.md },
-    tlCard: {
-        backgroundColor: colors.bg, borderRadius: radius.lg, padding: spacing.lg,
-    },
+    tlCard: { backgroundColor: colors.bg, borderRadius: radius.lg, padding: spacing.lg },
     tlCardHighlight: { backgroundColor: colors.primarySoft },
     tlHead: {
         flexDirection: 'row', alignItems: 'center',
@@ -293,4 +413,11 @@ const styles = StyleSheet.create({
 
     transcriptBtn: { alignItems: 'center', paddingTop: spacing.lg },
     transcriptText: { ...font.body, color: colors.text },
+
+    errorText: { ...font.small, color: colors.danger, textAlign: 'center' },
+    retryBtn: {
+        borderWidth: 1, borderColor: colors.border, borderRadius: radius.pill,
+        paddingHorizontal: spacing.xl, paddingVertical: spacing.md,
+    },
+    retryText: { ...font.small, fontWeight: '600', color: colors.text },
 });
