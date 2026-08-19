@@ -7,15 +7,3 @@ export const homeSummary: HomeSummary = {
     hasTranscript: true,
     summaryNeedsReview: true,
 };
-
-export const SHIFT_LABEL = {
-    DAY: 'Day Shift',
-    EVENING: 'Evening Shift',
-    NIGHT: 'Night Shift',
-} as const;
-
-export const SHIFT_EMOJI = {
-    DAY: '☀️',
-    EVENING: '🌇',
-    NIGHT: '🌙',
-} as const;

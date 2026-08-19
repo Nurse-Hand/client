@@ -6,6 +6,7 @@ import BottomTabBar from './src/components/BottomTabBar';
 import HomeScreen from './src/screens/HomeScreen';
 import PatientListScreen from './src/screens/PatientListScreen';
 import PatientDetailScreen from './src/screens/PatientDetailScreen';
+import HandoffScreen from './src/screens/HandOffScreen';
 import { TabKey } from './src/types';
 import { colors, font } from './src/theme';
 
@@ -44,7 +45,7 @@ export default function App() {
           {tab === 'home' && <HomeScreen />}
           {tab === 'patient' && renderPatientTab()}
           {tab === 'task' && <Placeholder label="업무" />}
-          {tab === 'handoff' && <Placeholder label="인수인계" />}
+          {tab === 'handoff' && <HandoffScreen />}
           {tab === 'my' && <Placeholder label="마이" />}
         </View>
         <BottomTabBar current={tab} onChange={changeTab} />
