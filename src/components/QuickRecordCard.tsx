@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View, Text, Pressable, Modal, ScrollView, StyleSheet } from 'react-native';
+import { View, Text, Image, Pressable, Modal, ScrollView, StyleSheet } from 'react-native';
 import { useRecorder, formatDuration } from '../hooks/useRecorder';
 import { patients } from '../mocks/patients';
 import { colors, spacing, radius, font } from '../theme';
@@ -45,7 +45,7 @@ export default function QuickRecordCard() {
         setPatientId(null);
         rec.reset();
     };
-    
+
     if (phase === 'IDLE') {
         return (
             <View style={styles.card}>
@@ -53,7 +53,11 @@ export default function QuickRecordCard() {
                 <View style={styles.idleRow}>
                     <Text style={styles.idleDesc}>음성 녹음으로 빠르게 기록해보세요</Text>
                     <Pressable style={styles.micBtn} onPress={handleMicPress} disabled={!rec.ready}>
-                        <Text style={styles.micIcon}>🎙</Text>
+                        <Image
+                            source={require('../../assets/icons/mic1.png')}
+                            style={styles.micIcon}
+                            resizeMode="contain"
+                        />
                     </Pressable>
                 </View>
                 {rec.error && <Text style={styles.error}>{rec.error}</Text>}
@@ -94,7 +98,11 @@ export default function QuickRecordCard() {
 
             <Text style={styles.fieldLabel}>환자 지정 (선택)</Text>
             <Pressable style={styles.select} onPress={() => setPickerOpen(true)}>
-                <Text style={styles.selectIcon}>👤</Text>
+                <Image
+                    source={require('../../assets/icons/person.png')}
+                    style={styles.selectIcon}
+                    resizeMode="contain"
+                />
                 <Text style={[styles.selectText, !selected && styles.selectPlaceholder]}>
                     {selected ? `${selected.room}호 ${selected.name}` : '환자 선택'}
                 </Text>
@@ -173,11 +181,10 @@ const styles = StyleSheet.create({
     idleRow: { flexDirection: 'row', alignItems: 'center' },
     idleDesc: { flex: 1, ...font.small, color: colors.textDim },
     micBtn: {
-        width: 52, height: 52, borderRadius: radius.pill,
-        backgroundColor: colors.primarySoft,
+        width: 52, height: 52,
         alignItems: 'center', justifyContent: 'center',
     },
-    micIcon: { fontSize: 22 },
+    micIcon: { width: 52, height: 52 },
 
     recordRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginBottom: spacing.xl },
     pauseBtn: {
@@ -202,7 +209,7 @@ const styles = StyleSheet.create({
         paddingHorizontal: spacing.lg, height: 48,
         marginBottom: spacing.lg,
     },
-    selectIcon: { fontSize: 14 },
+    selectIcon: { width: 24, height:24 },
     selectText: { flex: 1, ...font.body, color: colors.text },
     selectPlaceholder: { color: colors.textDim },
     selectChevron: { fontSize: 15, color: colors.textDim },

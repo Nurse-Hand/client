@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { View, Text, Pressable, ScrollView, TextInput, StyleSheet, Alert } from 'react-native';
+import { View, Text, Image, Pressable, ScrollView, TextInput, StyleSheet, Alert } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { patients } from '../mocks/patients';
 import { Patient, PatientFlag, PATIENT_FLAG_LABEL } from '../types';
@@ -61,7 +61,11 @@ export default function PatientListScreen({ onSelect }: Props) {
             </View>
 
             <View style={styles.searchBox}>
-                <Text style={styles.searchIcon}>🔍</Text>
+                <Image
+                    source={require('../../assets/icons/search.png')}
+                    style={styles.searchIcon}
+                    resizeMode="contain"
+                />
                 <TextInput
                     style={styles.searchInput}
                     placeholder="환자명, 등록 번호로 검색"
@@ -187,7 +191,7 @@ const styles = StyleSheet.create({
         marginTop: spacing.md,
         marginBottom: spacing.sm,
     },
-    searchIcon: { fontSize: 14 },
+    searchIcon: { width: 20, height: 20 },
     searchInput: { flex: 1, ...font.body, color: colors.text },
 
     chipScroll: {

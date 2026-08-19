@@ -55,7 +55,6 @@ export interface HomeSummary {
     today: string;
     duty: DutyInfo;
     hasTranscript: boolean;
-    summaryNeedsReview: boolean;
 }
 
 export type PatientFlag = 'CAUTION' | 'NEW' | 'DISCHARGE_SOON';
@@ -140,7 +139,7 @@ export interface LocalSegment {
     synced: boolean;
 }
 
-export type ChatItemKind = 'MEMO' | 'PHOTO' | 'AI_ANALYSIS';
+export type ChatItemKind = 'MEMO' | 'PHOTO';
 
 export interface ChatItem {
     id: string;

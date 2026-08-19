@@ -40,6 +40,7 @@ export default function RoundingScreen({ onBack }: Props) {
 
   const [chatItems, setChatItems] = useState<ChatItem[]>([]);
   const [memoText, setMemoText] = useState('');
+  const [editingId, setEditingId] = useState<string | null>(null);
   const chatScrollRef = useRef<ScrollView>(null);
 
   const [sheetExpanded, setSheetExpanded] = useState(false);
@@ -87,6 +88,10 @@ export default function RoundingScreen({ onBack }: Props) {
   const nowIso = () => new Date().toISOString();
   const nowTime = () =>
     new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false });
+
+  const scrollChatToEnd = () => {
+    setTimeout(() => chatScrollRef.current?.scrollToEnd({ animated: true }), 120);
+  };
 
   const handleStart = async () => {
     const startedAt = nowIso();
@@ -161,25 +166,48 @@ export default function RoundingScreen({ onBack }: Props) {
     ]);
   };
 
-  const addMemo = () => {
+  const submitMemo = () => {
     const text = memoText.trim();
     if (!text) return;
-    setChatItems((prev) => [
-      ...prev,
-      {
-        id: `m${Date.now()}`,
-        kind: 'MEMO',
-        content: text,
-        patientLabel: selected ? `${selected.room}호 ${selected.name}` : undefined,
-        createdAt: nowTime(),
-      },
-    ]);
+
+    if (editingId) {
+      setChatItems((prev) =>
+        prev.map((c) => (c.id === editingId ? { ...c, content: text } : c)),
+      );
+      setEditingId(null);
+    } else {
+      setChatItems((prev) => [
+        ...prev,
+        {
+          id: `m${Date.now()}`,
+          kind: 'MEMO',
+          content: text,
+          patientLabel: selected ? `${selected.room}호 ${selected.name}` : undefined,
+          createdAt: nowTime(),
+        },
+      ]);
+      if (!expandedRef.current) snapTo(true);
+      scrollChatToEnd();
+    }
+
     setMemoText('');
-    if (!expandedRef.current) snapTo(true);
-    setTimeout(() => chatScrollRef.current?.scrollToEnd({ animated: true }), 120);
   };
 
-  const pickPhoto = async () => {
+  const closeComposer = () => {
+    setComposerOpen(false);
+    if (editingId) {
+      setEditingId(null);
+      setMemoText('');
+    }
+  };
+
+  const startEditMemo = (item: ChatItem) => {
+    setEditingId(item.id);
+    setMemoText(item.content);
+    setComposerOpen(true);
+  };
+
+  const pickPhoto = async (replaceId?: string) => {
     const perm = await ImagePicker.requestCameraPermissionsAsync();
     const result = perm.granted
       ? await ImagePicker.launchCameraAsync({ quality: 0.7 })
@@ -188,26 +216,42 @@ export default function RoundingScreen({ onBack }: Props) {
     if (result.canceled) return;
     const asset = result.assets[0];
 
-    const item: ChatItem = {
-      id: `p${Date.now()}`,
-      kind: 'PHOTO',
-      content: asset.uri,
-      createdAt: nowTime(),
-    };
-    setChatItems((prev) => [...prev, item]);
-    if (!expandedRef.current) snapTo(true);
-    setTimeout(() => chatScrollRef.current?.scrollToEnd({ animated: true }), 120);
+    let targetId = replaceId;
+
+    if (replaceId) {
+      setChatItems((prev) =>
+        prev.map((c) =>
+          c.id === replaceId ? { ...c, content: asset.uri, fileId: undefined } : c,
+        ),
+      );
+    } else {
+      targetId = `p${Date.now()}`;
+      setChatItems((prev) => [
+        ...prev,
+        { id: targetId as string, kind: 'PHOTO', content: asset.uri, createdAt: nowTime() },
+      ]);
+      if (!expandedRef.current) snapTo(true);
+      scrollChatToEnd();
+    }
 
     try {
       const file = await uploadPhoto(asset.uri);
-      setChatItems((prev) => prev.map((c) => (c.id === item.id ? { ...c, fileId: file.id } : c)));
+      setChatItems((prev) => prev.map((c) => (c.id === targetId ? { ...c, fileId: file.id } : c)));
     } catch (e: any) {
       console.log('사진 업로드 실패:', e.code, e.message);
     }
   };
 
-  const removeChatItem = (id: string) => {
-    setChatItems((prev) => prev.filter((c) => c.id !== id));
+  const confirmRemove = (item: ChatItem) => {
+    const label = item.kind === 'PHOTO' ? '사진을' : '메모를';
+    Alert.alert('삭제', `${label} 삭제할까요?`, [
+      { text: '취소', style: 'cancel' },
+      {
+        text: '삭제',
+        style: 'destructive',
+        onPress: () => setChatItems((prev) => prev.filter((c) => c.id !== item.id)),
+      },
+    ]);
   };
 
   if (phase === 'IDLE') {
@@ -231,11 +275,15 @@ export default function RoundingScreen({ onBack }: Props) {
         ) : null}
 
         <View style={styles.idleCenter}>
-          <Text style={styles.idleText}>녹음 대기 중이에요...</Text>
+          <Text style={styles.idleText}>녹음 시작</Text>
           <Pressable style={styles.micOuter} onPress={handleStart} disabled={!rec.ready}>
             <View style={styles.micMid}>
               <View style={styles.micInner}>
-                <Text style={styles.micIcon}>🎙</Text>
+                <Image
+                  source={require('../../assets/icons/mic2.png')}
+                  style={styles.micIcon}
+                  resizeMode="contain"
+                />
               </View>
             </View>
           </Pressable>
@@ -308,7 +356,11 @@ export default function RoundingScreen({ onBack }: Props) {
 
             <Text style={styles.fieldLabel}>환자 지정 (선택)</Text>
             <Pressable style={styles.select} onPress={() => setPickerOpen(true)}>
-              <Text style={styles.selectIcon}>👤</Text>
+              <Image
+                source={require('../../assets/icons/person.png')}
+                style={styles.selectIcon}
+                resizeMode="contain"
+              />
               <Text style={[styles.selectText, !selected && styles.selectPlaceholder]}>
                 {selected ? `${selected.room}호 ${selected.name}` : '환자 선택'}
               </Text>
@@ -362,23 +414,32 @@ export default function RoundingScreen({ onBack }: Props) {
               <View key={item.id} style={styles.chatItem}>
                 <Text style={styles.timeChip}>{item.createdAt}</Text>
 
+                <View style={styles.itemActions}>
+                  <Pressable
+                    hitSlop={8}
+                    onPress={() =>
+                      item.kind === 'PHOTO' ? pickPhoto(item.id) : startEditMemo(item)
+                    }
+                  >
+                    <Image
+                      source={require('../../assets/icons/edit.png')}
+                      style={styles.actionIcon}
+                      resizeMode="contain"
+                    />
+                  </Pressable>
+                  <Pressable hitSlop={8} onPress={() => confirmRemove(item)}>
+                    <Image
+                      source={require('../../assets/icons/trash.png')}
+                      style={styles.actionIcon}
+                      resizeMode="contain"
+                    />
+                  </Pressable>
+                </View>
+
                 {item.kind === 'PHOTO' ? (
-                  <View style={styles.photoWrap}>
-                    <View style={styles.photoActions}>
-                      <Pressable hitSlop={8}>
-                        <Text style={styles.photoAction}>✎</Text>
-                      </Pressable>
-                      <Pressable hitSlop={8} onPress={() => removeChatItem(item.id)}>
-                        <Text style={styles.photoAction}>🗑</Text>
-                      </Pressable>
-                    </View>
-                    <Image source={{ uri: item.content }} style={styles.photo} resizeMode="cover" />
-                  </View>
+                  <Image source={{ uri: item.content }} style={styles.photo} resizeMode="cover" />
                 ) : (
-                  <View style={[styles.bubble, item.kind === 'AI_ANALYSIS' && styles.bubbleAi]}>
-                    {item.kind === 'AI_ANALYSIS' ? (
-                      <Text style={styles.aiLabel}>✦ 녹음 분석</Text>
-                    ) : null}
+                  <View style={styles.bubble}>
                     <Text style={styles.bubbleText}>
                       {item.patientLabel ? `@${item.patientLabel}, ` : ''}
                       {item.content}
@@ -391,8 +452,12 @@ export default function RoundingScreen({ onBack }: Props) {
         </ScrollView>
 
         <View style={[styles.inputRow, { paddingBottom: Math.max(insets.bottom, spacing.md) }]}>
-          <Pressable style={styles.cameraBtn} onPress={pickPhoto} hitSlop={6}>
-            <Text style={styles.cameraIcon}>📷</Text>
+          <Pressable style={styles.cameraBtn} onPress={() => pickPhoto()} hitSlop={6}>
+            <Image
+              source={require('../../assets/icons/camera.png')}
+              style={styles.cameraIcon}
+              resizeMode="contain"
+            />
           </Pressable>
 
           <Pressable style={styles.inputFake} onPress={() => setComposerOpen(true)}>
@@ -407,47 +472,59 @@ export default function RoundingScreen({ onBack }: Props) {
         visible={composerOpen}
         transparent
         animationType="fade"
-        onRequestClose={() => setComposerOpen(false)}
+        onRequestClose={closeComposer}
       >
         <KeyboardAvoidingView
           style={styles.composerRoot}
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         >
-          <Pressable style={styles.flex} onPress={() => setComposerOpen(false)} />
+          <Pressable style={styles.flex} onPress={closeComposer} />
 
           <View style={[styles.composerBar, { paddingBottom: Math.max(insets.bottom, spacing.md) }]}>
-            <Pressable
-              style={styles.cameraBtn}
-              onPress={() => {
-                setComposerOpen(false);
-                setTimeout(pickPhoto, 220);
-              }}
-              hitSlop={6}
-            >
-              <Text style={styles.cameraIcon}>📷</Text>
-            </Pressable>
+            {editingId ? (
+              <View style={styles.editingChip}>
+                <Text style={styles.editingText}>메모 수정 중</Text>
+              </View>
+            ) : null}
 
-            <TextInput
-              style={styles.input}
-              placeholder="메모나 사진으로 필요한 내용을 추가하세요"
-              placeholderTextColor={colors.textDim}
-              value={memoText}
-              onChangeText={setMemoText}
-              autoFocus
-              multiline
-            />
+            <View style={styles.composerRow}>
+              <Pressable
+                style={styles.cameraBtn}
+                onPress={() => {
+                  setComposerOpen(false);
+                  setTimeout(() => pickPhoto(), 220);
+                }}
+                hitSlop={6}
+              >
+                <Image
+                  source={require('../../assets/icons/camera.png')}
+                  style={styles.cameraIcon}
+                  resizeMode="contain"
+                />
+              </Pressable>
 
-            <Pressable
-              style={[styles.sendBtn, !memoText.trim() && styles.sendBtnOff]}
-              onPress={() => {
-                addMemo();
-                Keyboard.dismiss();
-                setComposerOpen(false);
-              }}
-              disabled={!memoText.trim()}
-            >
-              <Text style={styles.sendIcon}>↑</Text>
-            </Pressable>
+              <TextInput
+                style={styles.input}
+                placeholder="메모나 사진으로 필요한 내용을 추가하세요"
+                placeholderTextColor={colors.textDim}
+                value={memoText}
+                onChangeText={setMemoText}
+                autoFocus
+                multiline
+              />
+
+              <Pressable
+                style={[styles.sendBtn, !memoText.trim() && styles.sendBtnOff]}
+                onPress={() => {
+                  submitMemo();
+                  Keyboard.dismiss();
+                  setComposerOpen(false);
+                }}
+                disabled={!memoText.trim()}
+              >
+                <Text style={styles.sendIcon}>↑</Text>
+              </Pressable>
+            </View>
           </View>
         </KeyboardAvoidingView>
       </Modal>
@@ -598,7 +675,7 @@ const styles = StyleSheet.create({
     width: 92, height: 92, borderRadius: radius.pill,
     backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center',
   },
-  micIcon: { fontSize: 34 },
+  micIcon: { width: 40, height: 40 },
 
   dateText: { ...font.body, color: colors.textDim },
   aiBadge: {
@@ -635,7 +712,7 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: colors.border, borderRadius: radius.md,
     paddingHorizontal: spacing.lg, height: 48,
   },
-  selectIcon: { fontSize: 14 },
+  selectIcon: { width: 24, height: 24 },
   selectText: { flex: 1, ...font.body, color: colors.text },
   selectPlaceholder: { color: colors.textDim },
   selectChevron: { fontSize: 15, color: colors.textDim },
@@ -668,17 +745,15 @@ const styles = StyleSheet.create({
   chatItem: { alignItems: 'flex-end', gap: spacing.sm },
   timeChip: { ...font.tiny, color: colors.textDim, alignSelf: 'center' },
 
+  itemActions: { flexDirection: 'row', gap: spacing.md, paddingRight: spacing.xs },
+  actionIcon: { width: 16, height: 16 },
+
   bubble: {
     alignSelf: 'flex-end', maxWidth: '88%',
     backgroundColor: colors.primarySoft, borderRadius: radius.lg, padding: spacing.lg,
   },
-  bubbleAi: { alignSelf: 'flex-start', backgroundColor: colors.bg },
-  aiLabel: { ...font.small, color: colors.primary, marginBottom: spacing.sm },
   bubbleText: { ...font.body, color: colors.text, lineHeight: 22 },
 
-  photoWrap: { alignSelf: 'flex-end', gap: spacing.sm },
-  photoActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: spacing.md },
-  photoAction: { fontSize: 15, color: colors.textDim },
   photo: { width: 230, height: 172, borderRadius: radius.md },
 
   inputRow: { flexDirection: 'row', alignItems: 'flex-end', gap: spacing.sm, paddingTop: spacing.sm },
@@ -686,7 +761,7 @@ const styles = StyleSheet.create({
     width: 44, height: 44, borderRadius: radius.pill,
     backgroundColor: colors.bg, alignItems: 'center', justifyContent: 'center',
   },
-  cameraIcon: { fontSize: 19 },
+  cameraIcon: { width: 22, height: 22 },
 
   inputFake: {
     flex: 1, minHeight: 44, justifyContent: 'center',
@@ -697,10 +772,20 @@ const styles = StyleSheet.create({
 
   composerRoot: { flex: 1, backgroundColor: 'rgba(20,20,30,0.35)' },
   composerBar: {
-    flexDirection: 'row', alignItems: 'flex-end', gap: spacing.sm,
     backgroundColor: colors.card,
     paddingHorizontal: spacing.lg, paddingTop: spacing.md,
   },
+  composerRow: { flexDirection: 'row', alignItems: 'flex-end', gap: spacing.sm },
+  editingChip: {
+    alignSelf: 'flex-start',
+    backgroundColor: colors.primarySoft,
+    borderRadius: radius.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 4,
+    marginBottom: spacing.sm,
+  },
+  editingText: { ...font.tiny, color: colors.primary },
+
   input: {
     flex: 1, minHeight: 44, maxHeight: 104,
     backgroundColor: colors.bg, borderRadius: radius.lg,

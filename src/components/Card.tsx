@@ -42,7 +42,7 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
         marginBottom: spacing.md,
     },
-    title: { ...font.h2, color: colors.text },
+    title: { fontSize: 19, fontWeight: '700', color: colors.text },
     action: { flexDirection: 'row', alignItems: 'center', gap: 2 },
     actionText: { ...font.small, color: colors.textDim },
 });

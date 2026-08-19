@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import { View, Text, Pressable, ScrollView, StyleSheet } from 'react-native';
+import { View, Text, Image, Pressable, ScrollView, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { patients, patientDetails, daySummary, weekDays } from '../mocks/patients';
 import { PATIENT_FLAG_LABEL, TimelineEvent } from '../types';
-import { colors, spacing, radius, font} from '../theme';
+import { colors, spacing, radius, font } from '../theme';
 
 interface Props {
     patientId: string;
@@ -35,7 +35,11 @@ export default function PatientDetailScreen({ patientId, onBack }: Props) {
                     <View style={styles.infoTop}>
                         <Text style={styles.bedText}>{base.room}호  {base.bedNo}번 침상</Text>
                         <Pressable style={styles.editBtn} hitSlop={8}>
-                            <Text style={styles.editIcon}>✎</Text>
+                            <Image
+                                source={require('../../assets/icons/edit.png')}
+                                style={styles.editIcon}
+                                resizeMode="contain"
+                            />
                         </Pressable>
                     </View>
 
@@ -67,7 +71,11 @@ export default function PatientDetailScreen({ patientId, onBack }: Props) {
                             <Text style={styles.sectionDesc}>날짜별 환자의 인수인계 현황을 확인할 수 있어요</Text>
                         </View>
                         <Pressable style={styles.calBtn} hitSlop={8}>
-                            <Text style={styles.calIcon}>📅</Text>
+                            <Image
+                                source={require('../../assets/icons/calendar.png')}
+                                style={styles.calIcon}
+                                resizeMode="contain"
+                            />
                         </Pressable>
                     </View>
 
@@ -95,18 +103,31 @@ export default function PatientDetailScreen({ patientId, onBack }: Props) {
 
                     <View style={styles.aiHead}>
                         <Text style={styles.sectionTitle}>하루 AI 요약</Text>
-                        <Text style={styles.sparkle}>✦</Text>
+                        <Image
+                            source={require('../../assets/icons/ai.png')}
+                            style={styles.sparkle}
+                            resizeMode="contain"
+                        />
                     </View>
-                    {daySummary.aiSummary.map((line, i) => (
-                        <Text key={i} style={styles.aiLine}>{line}</Text>
-                    ))}
+
+                    {daySummary.aiSummary.length === 0 ? (
+                        <Text style={styles.aiEmpty}>요약할 기록이 없습니다</Text>
+                    ) : (
+                        daySummary.aiSummary.map((line, i) => (
+                            <Text key={i} style={styles.aiLine}>{line}</Text>
+                        ))
+                    )}
 
                     <View style={styles.cardDivider} />
 
                     <View style={styles.timeline}>
-                        {daySummary.events.map((e, i) => (
-                            <TimelineRow key={e.id} event={e} isLast={i === daySummary.events.length - 1} />
-                        ))}
+                        {daySummary.events.length === 0 ? (
+                            <Text style={styles.timelineEmpty}>기록이 없습니다</Text>
+                        ) : (
+                            daySummary.events.map((e, i) => (
+                                <TimelineRow key={e.id} event={e} isLast={i === daySummary.events.length - 1} />
+                            ))
+                        )}
                     </View>
 
                     <Pressable style={styles.transcriptBtn}>
@@ -136,19 +157,22 @@ function TimelineRow({ event, isLast }: { event: TimelineEvent; isLast: boolean 
                 {!isLast && <View style={styles.tlLine} />}
             </View>
 
-            <View style={[styles.tlCard, highlight && styles.tlCardHighlight]}>
-                <View style={styles.tlHead}>
-                    <Text style={styles.tlTitle}>{event.title}</Text>
-                    <Text style={styles.tlTime}>{event.time}</Text>
+            <View style={styles.tlBody}>
+                <View style={[styles.tlCard, highlight && styles.tlCardHighlight]}>
+                    <View style={styles.tlHead}>
+                        <Text style={styles.tlTitle}>{event.title}</Text>
+                        <Text style={styles.tlTime}>{event.time}</Text>
+                    </View>
+                    {event.lines.map((line, i) => (
+                        <Text key={i} style={styles.tlLineText}>{line}</Text>
+                    ))}
                 </View>
-                {event.lines.map((line, i) => (
-                    <Text key={i} style={styles.tlLineText}>{line}</Text>
-                ))}
-                {event.alert && (
+
+                {event.alert ? (
                     <View style={styles.alertBox}>
                         <Text style={styles.alertText}>⚠ {event.alert}</Text>
                     </View>
-                )}
+                ) : null}
             </View>
         </View>
     );
@@ -184,7 +208,7 @@ const styles = StyleSheet.create({
         width: 32, height: 32, borderRadius: radius.pill,
         backgroundColor: colors.bg, alignItems: 'center', justifyContent: 'center',
     },
-    editIcon: { fontSize: 13, color: colors.textSub },
+    editIcon: { width: 16, height: 16 },
 
     nameRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: spacing.xs },
     name: { fontSize: 22, fontWeight: '700', color: colors.text },
@@ -207,7 +231,7 @@ const styles = StyleSheet.create({
         width: 38, height: 38, borderRadius: radius.md,
         backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center',
     },
-    calIcon: { fontSize: 16 },
+    calIcon: { width: 20, height: 20 },
 
     weekNav: {
         flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
@@ -229,10 +253,15 @@ const styles = StyleSheet.create({
     dayDateActive: { color: colors.primary, fontWeight: '700' },
 
     aiHead: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.md },
-    sparkle: { fontSize: 15, color: colors.primary },
-    aiLine: { ...font.body, color: colors.textSub, lineHeight: 22 },
+    sparkle: { width: 18, height: 18 },
+    aiLine: { fontSize: 13, fontWeight: '400', color: colors.textSub, lineHeight: 20 },
+    aiEmpty: { ...font.small, color: colors.textDim },
 
     timeline: { paddingLeft: spacing.xs },
+    timelineEmpty: {
+        ...font.small, color: colors.textDim,
+        textAlign: 'center', paddingVertical: spacing.xxl,
+    },
     tlRow: { flexDirection: 'row' },
     tlRail: { width: 22, alignItems: 'center' },
     tlDot: {
@@ -242,8 +271,8 @@ const styles = StyleSheet.create({
     tlDotFilled: { backgroundColor: colors.primary },
     tlLine: { flex: 1, width: 2, backgroundColor: colors.primary },
 
+    tlBody: { flex: 1, marginLeft: spacing.md, marginBottom: spacing.md },
     tlCard: {
-        flex: 1, marginLeft: spacing.md, marginBottom: spacing.md,
         backgroundColor: colors.bg, borderRadius: radius.lg, padding: spacing.lg,
     },
     tlCardHighlight: { backgroundColor: colors.primarySoft },
@@ -251,16 +280,16 @@ const styles = StyleSheet.create({
         flexDirection: 'row', alignItems: 'center',
         justifyContent: 'space-between', marginBottom: spacing.sm,
     },
-    tlTitle: { ...font.h2, color: colors.text },
-    tlTime: { ...font.small, color: colors.textDim },
-    tlLineText: { ...font.small, color: colors.textSub, lineHeight: 20 },
+    tlTitle: { fontSize: 15, fontWeight: '700', color: colors.text },
+    tlTime: { fontSize: 11, fontWeight: '500', color: colors.textDim },
+    tlLineText: { fontSize: 12, fontWeight: '400', color: colors.textSub, lineHeight: 18 },
 
     alertBox: {
-        flexDirection: 'row', alignSelf: 'flex-start', marginTop: spacing.md,
-        backgroundColor: colors.card, borderRadius: radius.pill,
-        paddingHorizontal: spacing.md, paddingVertical: spacing.sm,
+        flexDirection: 'row', alignSelf: 'flex-start', marginTop: spacing.sm,
+        borderWidth: 1, borderColor: colors.primary, borderRadius: radius.pill,
+        paddingHorizontal: spacing.md, paddingVertical: 6,
     },
-    alertText: { ...font.tiny, color: colors.primary },
+    alertText: { fontSize: 11, fontWeight: '600', color: colors.primary },
 
     transcriptBtn: { alignItems: 'center', paddingTop: spacing.lg },
     transcriptText: { ...font.body, color: colors.text },

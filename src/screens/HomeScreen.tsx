@@ -9,7 +9,7 @@ import QuickRecordCard from '../components/QuickRecordCard';
 
 export default function HomeScreen({ onStartRounding }: { onStartRounding: () => void }) {
     const insets = useSafeAreaInsets();
-    const { nurseName, today, duty, summaryNeedsReview } = homeSummary;
+    const { nurseName, today, duty } = homeSummary;
 
     return (
         <ScrollView
@@ -31,7 +31,15 @@ export default function HomeScreen({ onStartRounding }: { onStartRounding: () =>
                     <Text style={styles.date}>{today}</Text>
                     <Text style={styles.hello}>{nurseName}님,{'\n'}좋은 아침이에요!</Text>
                 </View>
-                <Image source={require('../../assets/mascot1.png')} style={styles.mascot} resizeMode="contain" />
+                <View style={styles.mascotWrap}>
+                    <View style={styles.circlePink} />
+                    <View style={styles.circleYellow} />
+                    <Image
+                        source={require('../../assets/mascot1.png')}
+                        style={styles.mascot}
+                        resizeMode="contain"
+                    />
+                </View>
             </View>
 
             <Card title="라운딩 기록">
@@ -51,21 +59,25 @@ export default function HomeScreen({ onStartRounding }: { onStartRounding: () =>
             </Card>
 
             <QuickRecordCard />
-
             <Card title="오늘 기록 보기" actionLabel="전체 기록보기">
                 <Pressable style={styles.listRow}>
+                    <Image
+                        source={require('../../assets/icons/document.png')}
+                        style={styles.listIcon}
+                        resizeMode="contain"
+                    />
                     <Text style={styles.listTitle}>기록 원문</Text>
                     <Text style={styles.listDesc}>가공되지 않은 원문 파일과 기록 내용을 확인할 수 있어요</Text>
                 </Pressable>
                 <View style={styles.divider} />
                 <Pressable style={styles.listRow}>
+                    <Image
+                        source={require('../../assets/icons/ai.png')}
+                        style={styles.listIcon}
+                        resizeMode="contain"
+                    />
                     <View style={styles.listTitleRow}>
                         <Text style={styles.listTitle}>요약 정리본</Text>
-                        {summaryNeedsReview && (
-                            <View style={styles.badge}>
-                                <Text style={styles.badgeText}>검토 필요</Text>
-                            </View>
-                        )}
                     </View>
                     <Text style={styles.listDesc}>기록을 토대로 AI가 정리한 내용을 볼 수 있어요</Text>
                 </Pressable>
@@ -73,12 +85,10 @@ export default function HomeScreen({ onStartRounding }: { onStartRounding: () =>
 
             <View style={styles.bottomRow}>
                 <Pressable style={styles.subBtn}>
-                    <Text style={styles.subBtnEmoji}>🗓</Text>
-                    <Text style={styles.subBtnText}>근무표 수정하기</Text>
+                    <Text style={styles.subBtnText}>근무표 수정</Text>
                 </Pressable>
                 <Pressable style={styles.subBtn}>
-                    <Text style={styles.subBtnEmoji}>🛏</Text>
-                    <Text style={styles.subBtnText}>환자 현황 변경</Text>
+                    <Text style={styles.subBtnText}>환자 담당표 수정</Text>
                 </Pressable>
             </View>
         </ScrollView>
@@ -98,11 +108,34 @@ const styles = StyleSheet.create({
 
     greeting: { flexDirection: 'row', alignItems: 'center', marginBottom: spacing.xl },
     greetingText: { flex: 1 },
-    date: { ...font.small, color: colors.primary, marginBottom: spacing.xs },
+    date: {
+        ...font.small,
+        color: colors.primary,
+        backgroundColor: colors.card,
+        alignSelf: 'flex-start',
+        borderRadius: radius.pill,
+        paddingHorizontal: spacing.md,
+        paddingVertical: 6,
+        marginBottom: spacing.lg,
+        overflow: 'hidden',
+    },
     hello: { ...font.h1, color: colors.text },
+    mascotWrap: { width: 150, height: 150, alignItems: 'center', justifyContent: 'center' },
+    circlePink: {
+        position: 'absolute',
+        width: 100, height: 100, borderRadius: 50,
+        backgroundColor: '#FFECF3',
+        top: 8, left: 0,
+    },
+    circleYellow: {
+        position: 'absolute',
+        width: 70, height: 70, borderRadius: 35,
+        backgroundColor: '#FFF0CA',
+        bottom: 4, right: 4,
+    },
     mascot: {
-        width: 100,
-        height: 100,
+        width: 150,
+        height: 150,
     },
 
     dutyRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: spacing.xs, marginBottom: spacing.lg },
@@ -118,6 +151,7 @@ const styles = StyleSheet.create({
     },
     primaryBtnText: { fontSize: 15, fontWeight: '700', color: '#fff' },
 
+    listIcon: { width: 18, height: 18, marginBottom: spacing.sm },
     listRow: { paddingVertical: spacing.sm },
     listTitleRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
     listTitle: { ...font.body, color: colors.text, marginBottom: 3 },
@@ -144,5 +178,5 @@ const styles = StyleSheet.create({
         paddingVertical: 15,
     },
     subBtnEmoji: { fontSize: 15 },
-    subBtnText: { ...font.small, color: colors.text },
+    subBtnText: { ...font.body, color: colors.text },
 });
