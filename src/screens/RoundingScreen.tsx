@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import {
   View, Text, Pressable, ScrollView, TextInput, Image,
   Modal, ActivityIndicator, StyleSheet, Alert,
@@ -10,7 +10,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { useRecorder, formatDuration } from '../hooks/useRecorder';
 import { startSession, addSegment, completeSession } from '../api/rounding';
 import { uploadAudio, uploadPhoto } from '../api/files';
-import { patients } from '../mocks/patients';
+import { fetchPatients, ApiPatient } from '../api/patients';
 import { LocalSegment, ChatItem } from '../types';
 import { colors, spacing, radius, font } from '../theme';
 
@@ -33,6 +33,7 @@ export default function RoundingScreen({ onBack }: Props) {
   const [helpVisible, setHelpVisible] = useState(true);
   const [tipVisible, setTipVisible] = useState(true);
 
+  const [patients, setPatients] = useState<ApiPatient[]>([]);
   const [patientId, setPatientId] = useState<string | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [segments, setSegments] = useState<LocalSegment[]>([]);
@@ -49,6 +50,12 @@ export default function RoundingScreen({ onBack }: Props) {
   const sheetHeight = useRef(new Animated.Value(SHEET_COLLAPSED)).current;
   const expandedRef = useRef(false);
   const startHeightRef = useRef(SHEET_COLLAPSED);
+
+  useEffect(() => {
+    fetchPatients()
+      .then((res) => setPatients(res.items ?? []))
+      .catch((e) => console.log('환자 목록 실패:', e.code, e.message));
+  }, []);
 
   const snapTo = (expanded: boolean) => {
     expandedRef.current = expanded;
@@ -83,7 +90,10 @@ export default function RoundingScreen({ onBack }: Props) {
     }),
   ).current;
 
-  const selected = patients.find((p) => p.id === patientId);
+  const selected = patients.find((p) => p.patientId === patientId);
+  const selectedLabel = selected
+    ? `${selected.roomLabel ?? ''} ${selected.displayName}`.trim()
+    : null;
 
   const nowIso = () => new Date().toISOString();
   const nowTime = () =>
@@ -182,7 +192,7 @@ export default function RoundingScreen({ onBack }: Props) {
           id: `m${Date.now()}`,
           kind: 'MEMO',
           content: text,
-          patientLabel: selected ? `${selected.room}호 ${selected.name}` : undefined,
+          patientLabel: selectedLabel ?? undefined,
           createdAt: nowTime(),
         },
       ]);
@@ -362,7 +372,7 @@ export default function RoundingScreen({ onBack }: Props) {
                 resizeMode="contain"
               />
               <Text style={[styles.selectText, !selected && styles.selectPlaceholder]}>
-                {selected ? `${selected.room}호 ${selected.name}` : '환자 선택'}
+                {selectedLabel ?? '환자 선택'}
               </Text>
               <Text style={styles.selectChevron}>⌄</Text>
             </Pressable>
@@ -538,6 +548,7 @@ export default function RoundingScreen({ onBack }: Props) {
 
       <PatientPicker
         visible={pickerOpen}
+        patients={patients}
         selectedId={patientId}
         onSelect={(id) => {
           setPatientId(id);
@@ -585,9 +596,10 @@ function Waveform({ levels }: { levels: number[] }) {
 }
 
 function PatientPicker({
-  visible, selectedId, onSelect, onClose,
+  visible, patients, selectedId, onSelect, onClose,
 }: {
   visible: boolean;
+  patients: ApiPatient[];
   selectedId: string | null;
   onSelect: (id: string) => void;
   onClose: () => void;
@@ -599,22 +611,26 @@ function PatientPicker({
           <View style={styles.sheetHandle} />
           <Text style={styles.sheetTitle}>환자 선택</Text>
           <ScrollView style={styles.sheetList}>
-            {patients.map((p) => {
-              const active = p.id === selectedId;
-              return (
-                <Pressable
-                  key={p.id}
-                  style={[styles.sheetRow, active && styles.sheetRowActive]}
-                  onPress={() => onSelect(p.id)}
-                >
-                  <View style={styles.flex}>
-                    <Text style={styles.sheetRoom}>{p.room}호 {p.bedNo}번 침상</Text>
-                    <Text style={styles.sheetName}>{p.name}</Text>
-                  </View>
-                  {active ? <Text style={styles.check}>✓</Text> : null}
-                </Pressable>
-              );
-            })}
+            {patients.length === 0 ? (
+              <Text style={styles.sheetEmpty}>담당 환자가 없어요</Text>
+            ) : (
+              patients.map((p) => {
+                const active = p.patientId === selectedId;
+                return (
+                  <Pressable
+                    key={p.patientId}
+                    style={[styles.sheetRow, active && styles.sheetRowActive]}
+                    onPress={() => onSelect(p.patientId)}
+                  >
+                    <View style={styles.flex}>
+                      <Text style={styles.sheetRoom}>{p.roomLabel ?? '병실 미지정'}</Text>
+                      <Text style={styles.sheetName}>{p.displayName}</Text>
+                    </View>
+                    {active ? <Text style={styles.check}>✓</Text> : null}
+                  </Pressable>
+                );
+              })
+            )}
           </ScrollView>
         </Pressable>
       </Pressable>
@@ -815,6 +831,7 @@ const styles = StyleSheet.create({
   sheetHandle: { width: 38, height: 4, borderRadius: radius.pill, backgroundColor: colors.border, alignSelf: 'center', marginVertical: spacing.md },
   sheetTitle: { fontSize: 18, fontWeight: '700', color: colors.text, marginBottom: spacing.lg },
   sheetList: { marginBottom: spacing.md },
+  sheetEmpty: { ...font.small, color: colors.textDim, textAlign: 'center', paddingVertical: spacing.xl },
   sheetRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: spacing.lg, paddingHorizontal: spacing.md, borderRadius: radius.md },
   sheetRowActive: { backgroundColor: colors.primarySoft },
   sheetRoom: { ...font.small, color: colors.textDim },

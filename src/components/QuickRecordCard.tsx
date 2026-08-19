@@ -1,19 +1,29 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { View, Text, Image, Pressable, Modal, ScrollView, StyleSheet } from 'react-native';
 import { useRecorder, formatDuration } from '../hooks/useRecorder';
-import { patients } from '../mocks/patients';
-import { colors, spacing, radius, font } from '../theme';
+import { fetchPatients, ApiPatient } from '../api/patients';
 import { uploadAudio } from '../api/files';
+import { colors, spacing, radius, font } from '../theme';
 
 type Phase = 'IDLE' | 'RECORDING' | 'PAUSED';
 
 export default function QuickRecordCard() {
     const rec = useRecorder();
     const [phase, setPhase] = useState<Phase>('IDLE');
+    const [patients, setPatients] = useState<ApiPatient[]>([]);
     const [patientId, setPatientId] = useState<string | null>(null);
     const [pickerOpen, setPickerOpen] = useState(false);
 
-    const selected = patients.find((p) => p.id === patientId);
+    useEffect(() => {
+        fetchPatients()
+            .then((res) => setPatients(res.items ?? []))
+            .catch((e) => console.log('환자 목록 실패:', e.code, e.message));
+    }, []);
+
+    const selected = patients.find((p) => p.patientId === patientId);
+    const selectedLabel = selected
+        ? `${selected.roomLabel ?? ''} ${selected.displayName}`.trim()
+        : null;
 
     const handleMicPress = async () => {
         await rec.start();
@@ -60,7 +70,7 @@ export default function QuickRecordCard() {
                         />
                     </Pressable>
                 </View>
-                {rec.error && <Text style={styles.error}>{rec.error}</Text>}
+                {rec.error ? <Text style={styles.error}>{rec.error}</Text> : null}
             </View>
         );
     }
@@ -104,7 +114,7 @@ export default function QuickRecordCard() {
                     resizeMode="contain"
                 />
                 <Text style={[styles.selectText, !selected && styles.selectPlaceholder]}>
-                    {selected ? `${selected.room}호 ${selected.name}` : '환자 선택'}
+                    {selectedLabel ?? '환자 선택'}
                 </Text>
                 <Text style={styles.selectChevron}>⌄</Text>
             </Pressable>
@@ -115,6 +125,7 @@ export default function QuickRecordCard() {
 
             <PatientPicker
                 visible={pickerOpen}
+                patients={patients}
                 selectedId={patientId}
                 onSelect={(id) => {
                     setPatientId(id);
@@ -128,11 +139,13 @@ export default function QuickRecordCard() {
 
 function PatientPicker({
     visible,
+    patients,
     selectedId,
     onSelect,
     onClose,
 }: {
     visible: boolean;
+    patients: ApiPatient[];
     selectedId: string | null;
     onSelect: (id: string) => void;
     onClose: () => void;
@@ -145,22 +158,28 @@ function PatientPicker({
                     <Text style={styles.sheetTitle}>환자 선택</Text>
 
                     <ScrollView style={styles.sheetList}>
-                        {patients.map((p) => {
-                            const active = p.id === selectedId;
-                            return (
-                                <Pressable
-                                    key={p.id}
-                                    style={[styles.sheetRow, active && styles.sheetRowActive]}
-                                    onPress={() => onSelect(p.id)}
-                                >
-                                    <View style={styles.flex}>
-                                        <Text style={styles.sheetRoom}>{p.room}호 {p.bedNo}번 침상</Text>
-                                        <Text style={styles.sheetName}>{p.name}</Text>
-                                    </View>
-                                    {active && <Text style={styles.check}>✓</Text>}
-                                </Pressable>
-                            );
-                        })}
+                        {patients.length === 0 ? (
+                            <Text style={styles.sheetEmpty}>담당 환자가 없어요</Text>
+                        ) : (
+                            patients.map((p) => {
+                                const active = p.patientId === selectedId;
+                                return (
+                                    <Pressable
+                                        key={p.patientId}
+                                        style={[styles.sheetRow, active && styles.sheetRowActive]}
+                                        onPress={() => onSelect(p.patientId)}
+                                    >
+                                        <View style={styles.flex}>
+                                            <Text style={styles.sheetRoom}>
+                                                {p.roomLabel ?? '병실 미지정'}
+                                            </Text>
+                                            <Text style={styles.sheetName}>{p.displayName}</Text>
+                                        </View>
+                                        {active ? <Text style={styles.check}>✓</Text> : null}
+                                    </Pressable>
+                                );
+                            })
+                        )}
                     </ScrollView>
                 </Pressable>
             </Pressable>
@@ -209,7 +228,7 @@ const styles = StyleSheet.create({
         paddingHorizontal: spacing.lg, height: 48,
         marginBottom: spacing.lg,
     },
-    selectIcon: { width: 24, height:24 },
+    selectIcon: { width: 24, height: 24 },
     selectText: { flex: 1, ...font.body, color: colors.text },
     selectPlaceholder: { color: colors.textDim },
     selectChevron: { fontSize: 15, color: colors.textDim },
@@ -238,6 +257,7 @@ const styles = StyleSheet.create({
     },
     sheetTitle: { fontSize: 18, fontWeight: '700', color: colors.text, marginBottom: spacing.lg },
     sheetList: { marginBottom: spacing.md },
+    sheetEmpty: { ...font.small, color: colors.textDim, textAlign: 'center', paddingVertical: spacing.xl },
     sheetRow: {
         flexDirection: 'row', alignItems: 'center',
         paddingVertical: spacing.lg, paddingHorizontal: spacing.md,
