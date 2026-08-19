@@ -39,11 +39,19 @@ async function handle<T>(res: Response): Promise<T> {
         throw new ApiError('INVALID_RESPONSE', text.slice(0, 200), res.status);
     }
 
+    // if (!res.ok) {
+    //     const err = body?.error;
+    //     throw new ApiError(err?.code ?? 'UNKNOWN', err?.message ?? '요청에 실패했어요', res.status);
+    // }
+//임시
     if (!res.ok) {
+        console.log('서버 응답 전체:', text);
         const err = body?.error;
         throw new ApiError(err?.code ?? 'UNKNOWN', err?.message ?? '요청에 실패했어요', res.status);
     }
+
     return body?.data as T;
+
 }
 
 export async function apiGet<T>(path: string): Promise<T> {
@@ -79,7 +87,26 @@ export async function apiPatch<T>(path: string, body: unknown): Promise<T> {
     return handle<T>(res);
 }
 
+// export async function apiUpload<T>(path: string, fileUri: string, mimeType: string, name: string): Promise<T> {
+//     const form = new FormData();
+//     form.append('file', { uri: fileUri, type: mimeType, name } as any);
+
+//     const res = await fetch(`${BASE_URL}${path}`, {
+//         method: 'POST',
+//         headers: baseHeaders(),
+//         body: form,
+//     });
+//     return handle<T>(res);
+// }
+
+export function newIdempotencyKey() {
+    return uuid();
+}
+
+//임시
 export async function apiUpload<T>(path: string, fileUri: string, mimeType: string, name: string): Promise<T> {
+    console.log('업로드 시도 →', { fileUri, mimeType, name });
+
     const form = new FormData();
     form.append('file', { uri: fileUri, type: mimeType, name } as any);
 
@@ -89,8 +116,4 @@ export async function apiUpload<T>(path: string, fileUri: string, mimeType: stri
         body: form,
     });
     return handle<T>(res);
-}
-
-export function newIdempotencyKey() {
-    return uuid();
 }

@@ -131,3 +131,22 @@ export interface PendingCheck {
     label: string;
     count: number;
 }
+
+export interface LocalSegment {
+    sequence: number;
+    patientId: string | null;
+    startedAt: string;
+    endedAt: string;
+    synced: boolean;
+}
+
+export type ChatItemKind = 'MEMO' | 'PHOTO' | 'AI_ANALYSIS';
+
+export interface ChatItem {
+    id: string;
+    kind: ChatItemKind;
+    content: string;
+    patientLabel?: string;
+    createdAt: string;
+    fileId?: string;
+}

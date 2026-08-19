@@ -7,7 +7,7 @@ import { SHIFT_LABEL, SHIFT_EMOJI } from '../types';
 import { colors, spacing, radius, font } from '../theme';
 import QuickRecordCard from '../components/QuickRecordCard';
 
-export default function HomeScreen() {
+export default function HomeScreen({ onStartRounding }: { onStartRounding: () => void }) {
     const insets = useSafeAreaInsets();
     const { nurseName, today, duty, summaryNeedsReview } = homeSummary;
 
@@ -45,7 +45,7 @@ export default function HomeScreen() {
                     <Text style={styles.dot}>·</Text>
                     <Text style={styles.dutyValue}>{duty.ward}</Text>
                 </View>
-                <Pressable style={styles.primaryBtn}>
+                <Pressable style={styles.primaryBtn} onPress={onStartRounding}>
                     <Text style={styles.primaryBtnText}>라운딩 시작하기</Text>
                 </Pressable>
             </Card>

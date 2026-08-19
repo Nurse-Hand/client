@@ -9,6 +9,7 @@ import PatientDetailScreen from './src/screens/PatientDetailScreen';
 import HandoffScreen from './src/screens/HandoffScreen';
 import { TabKey } from './src/types';
 import { colors, font } from './src/theme';
+import RoundingScreen from './src/screens/RoundingScreen';
 
 function Placeholder({ label }: { label: string }) {
   return (
@@ -21,6 +22,7 @@ function Placeholder({ label }: { label: string }) {
 export default function App() {
   const [tab, setTab] = useState<TabKey>('home');
   const [detailPatientId, setDetailPatientId] = useState<string | null>(null);
+  const [roundingOpen, setRoundingOpen] = useState(false);
 
   const changeTab = (next: TabKey) => {
     setDetailPatientId(null);
@@ -42,13 +44,18 @@ export default function App() {
       <StatusBar style="dark" />
       <View style={styles.root}>
         <View style={styles.body}>
-          {tab === 'home' && <HomeScreen />}
-          {tab === 'patient' && renderPatientTab()}
-          {tab === 'task' && <Placeholder label="업무" />}
-          {tab === 'handoff' && <HandoffScreen />}
-          {tab === 'my' && <Placeholder label="마이" />}
+          {roundingOpen ? (
+            <RoundingScreen onBack={() => setRoundingOpen(false)} />
+          ) : (
+            <>
+              {tab === 'home' && <HomeScreen onStartRounding={() => setRoundingOpen(true)} />}
+              {tab === 'patient' && renderPatientTab()}
+              {tab === 'handoff' && <HandoffScreen />}
+              {tab === 'task' && <Placeholder label="업무" />}
+            </>
+          )}
         </View>
-        <BottomTabBar current={tab} onChange={changeTab} />
+        {!roundingOpen && <BottomTabBar current={tab} onChange={changeTab} />}
       </View>
     </SafeAreaProvider>
   );
