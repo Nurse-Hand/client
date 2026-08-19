@@ -6,7 +6,7 @@ import BottomTabBar from './src/components/BottomTabBar';
 import HomeScreen from './src/screens/HomeScreen';
 import PatientListScreen from './src/screens/PatientListScreen';
 import PatientDetailScreen from './src/screens/PatientDetailScreen';
-import HandoffScreen from './src/screens/HandOffScreen';
+import HandoffScreen from './src/screens/HandoffScreen';
 import { TabKey } from './src/types';
 import { colors, font } from './src/theme';
 

@@ -1,12 +1,11 @@
-import { View, Text, Pressable, ScrollView, StyleSheet } from 'react-native';
+import { View, Text, Image, Pressable, ScrollView, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Card from '../components/Card';
 import { homeSummary } from '../mocks/home';
-import { QUICK_RECORD_LABEL, QuickRecordType, SHIFT_LABEL, SHIFT_EMOJI } from '../types';
+import { SHIFT_LABEL, SHIFT_EMOJI } from '../types';
 import { colors, spacing, radius, font } from '../theme';
-
-const QUICK_TYPES = Object.keys(QUICK_RECORD_LABEL) as QuickRecordType[];
+import QuickRecordCard from '../components/QuickRecordCard';
 
 export default function HomeScreen() {
     const insets = useSafeAreaInsets();
@@ -32,9 +31,7 @@ export default function HomeScreen() {
                     <Text style={styles.date}>{today}</Text>
                     <Text style={styles.hello}>{nurseName}님,{'\n'}좋은 아침이에요!</Text>
                 </View>
-                <View style={styles.mascot}>
-                    <Text style={styles.mascotEmoji}>📋</Text>
-                </View>
+                <Image source={require('../../assets/mascot1.png')} style={styles.mascot} resizeMode="contain" />
             </View>
 
             <Card title="라운딩 기록">
@@ -53,16 +50,7 @@ export default function HomeScreen() {
                 </Pressable>
             </Card>
 
-            <Card title="빠른 기록" actionLabel="기록 수정" style={styles.quickCard}>
-                <Text style={styles.desc}>유형을 눌러 간단하게 메모 할 수 있어요</Text>
-                <View style={styles.chipGrid}>
-                    {QUICK_TYPES.map((type) => (
-                        <Pressable key={type} style={styles.chip}>
-                            <Text style={styles.chipText}>{QUICK_RECORD_LABEL[type]}</Text>
-                        </Pressable>
-                    ))}
-                </View>
-            </Card>
+            <QuickRecordCard />
 
             <Card title="오늘 기록 보기" actionLabel="전체 기록보기">
                 <Pressable style={styles.listRow}>
@@ -113,14 +101,9 @@ const styles = StyleSheet.create({
     date: { ...font.small, color: colors.primary, marginBottom: spacing.xs },
     hello: { ...font.h1, color: colors.text },
     mascot: {
-        width: 84,
-        height: 84,
-        borderRadius: radius.pill,
-        backgroundColor: colors.primarySoft,
-        alignItems: 'center',
-        justifyContent: 'center',
+        width: 100,
+        height: 100,
     },
-    mascotEmoji: { fontSize: 36 },
 
     dutyRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: spacing.xs, marginBottom: spacing.lg },
     dutyLabel: { ...font.small, color: colors.textDim, marginRight: spacing.xs },
@@ -134,35 +117,6 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     primaryBtnText: { fontSize: 15, fontWeight: '700', color: '#fff' },
-
-    quickCard: { marginTop: spacing.sm },
-    avatar: {
-        position: 'absolute',
-        top: -22,
-        left: '38%',
-        width: 46,
-        height: 46,
-        borderRadius: radius.pill,
-        backgroundColor: colors.accent,
-        borderWidth: 3,
-        borderColor: colors.card,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    avatarText: { fontSize: 18, fontWeight: '700', color: '#fff' },
-
-    desc: { ...font.small, color: colors.textSub, marginBottom: spacing.md },
-    chipGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
-    chip: {
-        flexGrow: 1,
-        flexBasis: '30%',
-        borderWidth: 1,
-        borderColor: colors.border,
-        borderRadius: radius.md,
-        paddingVertical: 11,
-        alignItems: 'center',
-    },
-    chipText: { ...font.small, color: colors.text },
 
     listRow: { paddingVertical: spacing.sm },
     listTitleRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
