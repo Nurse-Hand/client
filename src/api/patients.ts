@@ -12,8 +12,12 @@ export interface ApiPatient {
 }
 
 export type TimelineEventType =
-    | 'PATIENT_STATUS' | 'PAIN' | 'TREATMENT'
-    | 'DIET' | 'ACTIVITY' | 'OBSERVATION';
+    | 'PATIENT_STATUS'
+    | 'PAIN'
+    | 'TREATMENT'
+    | 'DIET'
+    | 'ACTIVITY'
+    | 'OBSERVATION';
 
 export interface ApiTimelineEvent {
     timelineEventId: string;
@@ -55,6 +59,8 @@ export function dateKeyOf(iso: string) {
 
 export function timeOf(iso: string) {
     return new Date(iso).toLocaleTimeString('ko-KR', {
-        hour: '2-digit', minute: '2-digit', hour12: false,
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false,
     });
 }
