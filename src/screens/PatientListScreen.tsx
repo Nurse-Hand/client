@@ -1,11 +1,11 @@
-import { useState, useMemo } from 'react';
-import { View, Text, Image, Pressable, ScrollView, TextInput, StyleSheet, Alert } from 'react-native';
+import { useState, useEffect, useMemo, useCallback } from 'react';
+import {
+    View, Text, Image, Pressable, ScrollView, TextInput,
+    ActivityIndicator, RefreshControl, StyleSheet, Alert,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { patients } from '../mocks/patients';
-import { Patient, PatientFlag, PATIENT_FLAG_LABEL } from '../types';
+import { fetchPatients, admissionDayOf, ApiPatient } from '../api/patients';
 import { colors, spacing, radius, font, layout } from '../theme';
-
-type FilterKey = 'ALL' | PatientFlag;
 
 interface Props {
     onSelect: (patientId: string) => void;
@@ -14,42 +14,52 @@ interface Props {
 export default function PatientListScreen({ onSelect }: Props) {
     const insets = useSafeAreaInsets();
     const [query, setQuery] = useState('');
-    const [filter, setFilter] = useState<FilterKey>('ALL');
+    const [items, setItems] = useState<ApiPatient[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [refreshing, setRefreshing] = useState(false);
+    const [error, setError] = useState<string | null>(null);
     const [discharged, setDischarged] = useState<string[]>([]);
 
+    const load = useCallback(async () => {
+        try {
+            setError(null);
+            const res = await fetchPatients();
+            setItems(res.items ?? []);
+        } catch (e: any) {
+            setError(e.message ?? '환자 목록을 불러오지 못했어요');
+        } finally {
+            setLoading(false);
+            setRefreshing(false);
+        }
+    }, []);
+
+    useEffect(() => {
+        load();
+    }, [load]);
+
     const active = useMemo(
-        () => patients.filter((p) => !discharged.includes(p.id)),
-        [discharged],
+        () => items.filter((p) => !discharged.includes(p.patientId)),
+        [items, discharged],
     );
 
-    const counts = useMemo(() => ({
-        ALL: active.length,
-        CAUTION: active.filter((p) => p.flags.includes('CAUTION')).length,
-        NEW: active.filter((p) => p.flags.includes('NEW')).length,
-        DISCHARGE_SOON: active.filter((p) => p.flags.includes('DISCHARGE_SOON')).length,
-    }), [active]);
-
     const filtered = useMemo(() => {
-        return active.filter((p) => {
-            const matchFilter = filter === 'ALL' || p.flags.includes(filter);
-            const q = query.trim();
-            const matchQuery = !q || p.name.includes(q) || p.room.includes(q);
-            return matchFilter && matchQuery;
-        });
-    }, [active, query, filter]);
+        const q = query.trim();
+        if (!q) return active;
+        return active.filter(
+            (p) => p.displayName.includes(q) || (p.roomLabel ?? '').includes(q),
+        );
+    }, [active, query]);
 
-    const handleDischarge = (patient: Patient) => {
-        Alert.alert('퇴원 처리', `${patient.room}호 ${patient.name}을 퇴원 처리할까요?`, [
+    const handleDischarge = (patient: ApiPatient) => {
+        Alert.alert('퇴원 처리', `${patient.displayName}을 퇴원 처리할까요?`, [
             { text: '취소', style: 'cancel' },
             {
                 text: '퇴원',
                 style: 'destructive',
-                onPress: () => setDischarged((prev) => [...prev, patient.id]),
+                onPress: () => setDischarged((prev) => [...prev, patient.patientId]),
             },
         ]);
     };
-
-    const filterKeys: FilterKey[] = ['ALL', 'CAUTION', 'NEW', 'DISCHARGE_SOON'];
 
     return (
         <View style={[styles.root, { paddingTop: insets.top + layout.screenTopGap }]}>
@@ -75,50 +85,51 @@ export default function PatientListScreen({ onSelect }: Props) {
                 />
             </View>
 
-            <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                style={styles.chipScroll}
-                contentContainerStyle={styles.chipRow}
-            >
-                {filterKeys.map((key) => {
-                    const isActive = filter === key;
-                    const label = key === 'ALL' ? '전체' : PATIENT_FLAG_LABEL[key];
-                    return (
-                        <Pressable
-                            key={key}
-                            style={[styles.filterChip, isActive && styles.filterChipActive]}
-                            onPress={() => setFilter(key)}
-                        >
-                            <Text style={[styles.filterText, isActive && styles.filterTextActive]}>
-                                {label}
-                            </Text>
-                            <Text style={[styles.filterCount, isActive && styles.filterTextActive]}>
-                                {counts[key]}
-                            </Text>
-                        </Pressable>
-                    );
-                })}
-            </ScrollView>
+            <View style={styles.countRow}>
+                <Text style={styles.countText}>전체 {active.length}명</Text>
+            </View>
 
-            <ScrollView
-                style={styles.list}
-                contentContainerStyle={styles.listContent}
-                showsVerticalScrollIndicator={false}
-            >
-                {filtered.map((p) => (
-                    <PatientRow
-                        key={p.id}
-                        patient={p}
-                        onPress={() => onSelect(p.id)}
-                        onDischarge={() => handleDischarge(p)}
-                    />
-                ))}
+            {loading ? (
+                <View style={styles.center}>
+                    <ActivityIndicator color={colors.primary} />
+                </View>
+            ) : error ? (
+                <View style={styles.center}>
+                    <Text style={styles.errorText}>{error}</Text>
+                    <Pressable style={styles.retryBtn} onPress={load}>
+                        <Text style={styles.retryText}>다시 시도</Text>
+                    </Pressable>
+                </View>
+            ) : (
+                <ScrollView
+                    style={styles.list}
+                    contentContainerStyle={styles.listContent}
+                    showsVerticalScrollIndicator={false}
+                    refreshControl={
+                        <RefreshControl
+                            refreshing={refreshing}
+                            onRefresh={() => {
+                                setRefreshing(true);
+                                load();
+                            }}
+                            tintColor={colors.primary}
+                        />
+                    }
+                >
+                    {filtered.map((p) => (
+                        <PatientRow
+                            key={p.patientId}
+                            patient={p}
+                            onPress={() => onSelect(p.patientId)}
+                            onDischarge={() => handleDischarge(p)}
+                        />
+                    ))}
 
-                {filtered.length === 0 ? (
-                    <Text style={styles.emptyText}>표시할 환자가 없어요</Text>
-                ) : null}
-            </ScrollView>
+                    {filtered.length === 0 ? (
+                        <Text style={styles.emptyText}>표시할 환자가 없어요</Text>
+                    ) : null}
+                </ScrollView>
+            )}
         </View>
     );
 }
@@ -126,37 +137,45 @@ export default function PatientListScreen({ onSelect }: Props) {
 function PatientRow({
     patient, onPress, onDischarge,
 }: {
-    patient: Patient;
+    patient: ApiPatient;
     onPress: () => void;
     onDischarge: () => void;
 }) {
+    const day = admissionDayOf(patient.admittedAt);
+
     return (
         <View style={styles.card}>
             <Pressable onPress={onPress}>
                 <View style={styles.cardTop}>
-                    <Text style={styles.bedText}>
-                        {patient.room}호  {patient.bedNo}번 침상
-                    </Text>
+                    <Text style={styles.bedText}>{patient.roomLabel ?? '병실 미지정'}</Text>
                     <Text style={styles.chevron}>›</Text>
                 </View>
 
                 <View style={styles.nameRow}>
-                    <Text style={styles.name}>{patient.name}</Text>
-                    {patient.flags.map((flag) => (
-                        <View key={flag} style={styles.flag}>
-                            <Text style={styles.flagText}>{PATIENT_FLAG_LABEL[flag]}</Text>
+                    <Text style={styles.name}>{patient.displayName}</Text>
+                    {patient.statusLabel ? (
+                        <View style={styles.flag}>
+                            <Text style={styles.flagText}>{patient.statusLabel}</Text>
                         </View>
-                    ))}
+                    ) : null}
                 </View>
 
-                <View style={styles.metaRow}>
-                    <Text style={styles.meta}>{patient.department}</Text>
-                    <Text style={styles.metaDot}>•</Text>
-                    <Text style={styles.meta}>입원 {patient.admissionDay}일차</Text>
-                </View>
+                {patient.department || day ? (
+                    <View style={styles.metaRow}>
+                        {patient.department ? (
+                            <Text style={styles.meta}>{patient.department}</Text>
+                        ) : null}
+                        {patient.department && day ? <Text style={styles.metaDot}>•</Text> : null}
+                        {day ? <Text style={styles.meta}>입원 {day}일차</Text> : null}
+                    </View>
+                ) : null}
 
-                <View style={styles.cardDivider} />
-                <Text style={styles.condition}>{patient.condition}</Text>
+                {patient.baselineSummary ? (
+                    <>
+                        <View style={styles.cardDivider} />
+                        <Text style={styles.condition}>{patient.baselineSummary}</Text>
+                    </>
+                ) : null}
             </Pressable>
 
             <Pressable style={styles.dischargeBtn} onPress={onDischarge}>
@@ -168,6 +187,7 @@ function PatientRow({
 
 const styles = StyleSheet.create({
     root: { flex: 1, backgroundColor: colors.bg },
+    center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.lg },
 
     header: {
         flexDirection: 'row',
@@ -189,37 +209,12 @@ const styles = StyleSheet.create({
         borderRadius: radius.lg,
         height: 56,
         marginTop: spacing.md,
-        marginBottom: spacing.sm,
     },
     searchIcon: { width: 20, height: 20 },
     searchInput: { flex: 1, ...font.body, color: colors.text },
 
-    chipScroll: {
-        flexGrow: 0,
-        marginBottom: spacing.sm,
-    },
-    chipRow: {
-        paddingHorizontal: spacing.lg,
-        paddingVertical: spacing.sm,
-        gap: spacing.sm,
-        alignItems: 'center',
-    },
-    filterChip: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: spacing.sm,
-        borderWidth: 1,
-        borderColor: colors.border,
-        borderRadius: radius.pill,
-        paddingHorizontal: spacing.lg,
-        paddingVertical: 6,
-        backgroundColor: colors.card,
-        height: 34,
-    },
-    filterChipActive: { borderColor: colors.primary, backgroundColor: colors.primarySoft },
-    filterText: { ...font.body, color: colors.textSub },
-    filterCount: { ...font.small, color: colors.textDim },
-    filterTextActive: { color: colors.primary },
+    countRow: { paddingHorizontal: spacing.lg, paddingVertical: spacing.lg },
+    countText: { ...font.small, color: colors.textSub },
 
     list: { flex: 1 },
     listContent: { paddingHorizontal: spacing.lg, paddingBottom: spacing.xxl },
@@ -267,4 +262,13 @@ const styles = StyleSheet.create({
         textAlign: 'center',
         marginTop: spacing.xxl,
     },
+    errorText: { ...font.small, color: colors.danger, textAlign: 'center' },
+    retryBtn: {
+        borderWidth: 1,
+        borderColor: colors.border,
+        borderRadius: radius.pill,
+        paddingHorizontal: spacing.xl,
+        paddingVertical: spacing.md,
+    },
+    retryText: { ...font.small, fontWeight: '600', color: colors.text },
 });
