@@ -5,8 +5,13 @@ console.log('BASE_URL:', BASE_URL);
 //const BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL ?? '';
 
 export class ApiError extends Error {
-    constructor(public code: string, message: string, public status: number) {
+    public readonly code: string;
+    public readonly status: number;
+
+    constructor(code: string, message: string, status: number) {
         super(message);
+        this.code = code;
+        this.status = status;
     }
 }
 
@@ -114,6 +119,23 @@ export async function apiUpload<T>(path: string, fileUri: string, mimeType: stri
         method: 'POST',
         headers: baseHeaders(),
         body: form,
+    });
+    return handle<T>(res);
+}
+
+export async function apiPut<T>(
+    path: string,
+    body: unknown,
+    idempotencyKey: string,
+): Promise<T> {
+    const res = await fetch(`${BASE_URL}${path}`, {
+        method: 'PUT',
+        headers: {
+            ...baseHeaders(),
+            'Content-Type': 'application/json',
+            'X-Idempotency-Key': idempotencyKey,
+        },
+        body: JSON.stringify(body),
     });
     return handle<T>(res);
 }

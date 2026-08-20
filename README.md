@@ -35,8 +35,12 @@ npx expo start --tunnel
 루트에 `.env` 파일을 생성합니다. (`.gitignore`에 포함되어 있어 커밋되지 않습니다)
 
 ```
-EXPO_PUBLIC_API_BASE_URL=http://<서버주소>:<포트>
+EXPO_PUBLIC_API_BASE_URL=http://<서버주소>:<포트>/api/v1
 ```
+
+- `src/api`의 요청 경로는 `/patients`, `/me/schedules/...`처럼 `/api/v1` 뒤에서 시작하므로 base URL에 `/api/v1`을 포함해야 합니다.
+- base URL 끝에는 `/`를 붙이지 않습니다. 예: `https://api.nursehand.com/api/v1`
+- `EXPO_PUBLIC_` 환경 변수는 앱 번들에서 읽을 수 있으므로 API key나 내부 인증 token 같은 비밀값을 넣지 않습니다.
 
 ## 앱 동작 흐름
 
