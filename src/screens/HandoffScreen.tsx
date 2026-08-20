@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import { View, Text, Image, Pressable, ScrollView, Modal, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { handoffRecords, pendingChecks, hasIncomingHandoff } from '../mocks/handoff';
-import { HandoffRecord, SHIFT_ICON } from '../types';
 import { colors, spacing, radius, font, layout } from '../theme';
 import { fetchHandoffs, dateOf, HandoffListItem } from '../api/handoffs';
 

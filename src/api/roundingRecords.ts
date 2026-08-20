@@ -56,7 +56,7 @@ export interface RecordEntry {
     needsReview?: boolean;
 }
 
-const USE_MOCK = true;
+const USE_MOCK = false;
 
 function todayAt(h: number, m: number) {
     const d = new Date();
@@ -172,18 +172,11 @@ export interface ApiRoundingRecord {
 }
 
 export function fetchRoundingRecords() {
-    if (USE_MOCK) {
-        return Promise.resolve({
-            date: new Date().toISOString().slice(0, 10),
-            items: MOCK_RECORDS,
-        });
-    }
     return apiGet<{ date: string; items: ApiRoundingRecord[] }>('/rounding-records');
 }
 
 export function fetchRecordEntries() {
-    if (USE_MOCK) return Promise.resolve(MOCK_ENTRIES);
-    return Promise.resolve([]);
+    return Promise.resolve(MOCK_ENTRIES);
 }
 
 export function fetchAnalysisJob(jobId: string) {
