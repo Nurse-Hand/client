@@ -10,6 +10,7 @@ import HandoffScreen from './src/screens/HandoffScreen';
 import { TabKey } from './src/types';
 import { colors, font } from './src/theme';
 import RoundingScreen from './src/screens/RoundingScreen';
+import TaskScreen from './src/screens/TaskScreen';
 
 function Placeholder({ label }: { label: string }) {
   return (
@@ -51,7 +52,7 @@ export default function App() {
               {tab === 'home' && <HomeScreen onStartRounding={() => setRoundingOpen(true)} />}
               {tab === 'patient' && renderPatientTab()}
               {tab === 'handoff' && <HandoffScreen />}
-              {tab === 'task' && <Placeholder label="업무" />}
+              {tab === 'task' && <TaskScreen />}
             </>
           )}
         </View>
