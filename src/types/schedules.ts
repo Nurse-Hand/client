@@ -3,6 +3,7 @@ export type ScheduleDuty = 'DAY' | 'EVENING' | 'NIGHT' | 'OFF';
 export interface ScheduleEntry {
     date: string;
     duty: ScheduleDuty;
+    shiftId?: string | null;
 }
 
 export interface MonthlySchedule {

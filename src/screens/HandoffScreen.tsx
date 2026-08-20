@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import { View, Text, Image, Pressable, ScrollView, Modal, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { handoffRecords, pendingChecks, hasIncomingHandoff } from '../mocks/handoff';
-import { HandoffRecord, SHIFT_ICON } from '../types';
 import { colors, spacing, radius, font, layout } from '../theme';
 import { fetchHandoffs, dateOf, HandoffListItem } from '../api/handoffs';
 
@@ -44,13 +43,15 @@ export default function HandoffScreen({
             >
                 {hasIncomingHandoff && (
                     <Pressable style={styles.noticeCard}>
-                        <View style={styles.noticeDot} />
+                        <View style={styles.bellWrap}>
+                            <Image
+                                source={require('../../assets/icons/bell.png')}
+                                style={styles.bellIcon}
+                                resizeMode="contain"
+                            />
+                            <View style={styles.noticeDot} />
+                        </View>
                         <Text style={styles.noticeText}>이전 근무자가 보낸 인계 사항이 있어요.</Text>
-                        <Image
-                            source={require('../../assets/icons/bell.png')}
-                            style={styles.bellIcon}
-                            resizeMode="contain"
-                        />
                     </Pressable>
                 )}
 
@@ -196,13 +197,19 @@ const styles = StyleSheet.create({
         paddingHorizontal: spacing.lg,
         paddingVertical: spacing.lg,
         marginBottom: spacing.lg,
-    },
-    noticeDot: {
-        width: 6, height: 6, borderRadius: radius.pill,
-        backgroundColor: colors.primary, marginRight: spacing.md,
+        gap: spacing.md,
     },
     noticeText: { flex: 1, ...font.body, color: colors.text },
+
+    bellWrap: { position: 'relative' },
     bellIcon: { width: 20, height: 20 },
+    noticeDot: {
+        position: 'absolute',
+        top: -1, right: -1,
+        width: 7, height: 7,
+        borderRadius: radius.pill,
+        backgroundColor: colors.primary,
+    },
 
     banner: {
         flexDirection: 'row',
@@ -223,7 +230,7 @@ const styles = StyleSheet.create({
         marginTop: spacing.xl,
     },
     bannerBtnText: { fontSize: 15, fontWeight: '700', color: colors.primary },
-    bannerMascot: { width: 110, height: 110, alignSelf: 'flex-end' },
+    bannerMascot: { width: 150, height: 150, alignSelf: 'flex-end' },
 
     card: {
         backgroundColor: colors.card,

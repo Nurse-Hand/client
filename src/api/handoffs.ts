@@ -107,7 +107,11 @@ export function summaryOf(patient: HandoffPatient, warnings: HandoffWarning[]) {
     if (w) return w.message;
 
     const filled = SECTION_ORDER.find((k) => patient.sections[k]);
-    return filled ? patient.sections[filled]! : '작성된 내용이 없습니다';
+    if (!filled) return '작성된 내용이 없습니다';
+
+    const text = patient.sections[filled]!;
+    const firstSentence = text.split(/[.。]\s*/)[0];
+    return firstSentence.length > 30 ? `${firstSentence.slice(0, 30)}...` : firstSentence;
 }
 
 export function filledSectionsOf(patient: HandoffPatient) {
@@ -240,9 +244,22 @@ const MOCK_DRAFT: HandoffDraft = {
     updatedAt: new Date().toISOString(),
 };
 
-export function createHandoff(body: { date: string; precheckId?: string }) {
+export function createHandoff(body: {
+    date: string;
+    shiftId: string;
+    targetDuty: 'DAY' | 'EVENING' | 'NIGHT';
+    precheckId?: string;
+}) {
     if (USE_MOCK) return Promise.resolve(MOCK_DRAFT);
-    return apiPost<HandoffDraft>('/handoffs', body, newIdempotencyKey());
+    return apiPost<HandoffDraft>(
+        '/handoffs',
+        {
+            ...body,
+            templateId: 'NURSING_HANDOFF_V1',
+            includeUnverified: true,
+        },
+        newIdempotencyKey(),
+    );
 }
 
 export function fetchHandoff(handoffId: string) {
@@ -260,7 +277,11 @@ export function updateHandoff(
 
 export function finalizeHandoff(handoffId: string, version: number) {
     if (USE_MOCK) return Promise.resolve({ ...MOCK_DRAFT, status: 'FINALIZED' as const });
-    return apiPost<HandoffDraft>(`/handoffs/${handoffId}/finalize`, { version });
+    return apiPost<HandoffDraft>(
+        `/handoffs/${handoffId}/finalize`,
+        { version, unverifiedHandling: 'KEEP_WITH_WARNING' },
+        newIdempotencyKey(),
+    );
 }
 
 export function citationTime(iso: string | null) {
