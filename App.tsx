@@ -11,6 +11,7 @@ import RoundingScreen from './src/screens/RoundingScreen';
 import TaskScreen from './src/screens/TaskScreen';
 import HandoffPrecheckScreen from './src/screens/HandoffPrecheckScreen';
 import OnboardingScreen from './src/screens/OnboardingScreen';
+import RecordTranscriptScreen from './src/screens/RecordTranscriptScreen';
 import { TabKey } from './src/types';
 import { colors, font } from './src/theme';
 
@@ -28,6 +29,7 @@ export default function App() {
   const [roundingOpen, setRoundingOpen] = useState(false);
   const [precheckOpen, setPrecheckOpen] = useState(false);
   const [onboardingDone, setOnboardingDone] = useState(false);
+  const [transcriptOpen, setTranscriptOpen] = useState(false);
 
   const changeTab = (next: TabKey) => {
     setDetailPatientId(null);
@@ -53,40 +55,49 @@ export default function App() {
     );
   }
 
-      return (
-      <SafeAreaProvider>
-        <StatusBar style="dark" />
-        <View style={styles.root}>
-          <View style={styles.body}>
-            {roundingOpen ? (
-              <RoundingScreen onBack={() => setRoundingOpen(false)} />
-            ) : (
-              <>
-                {tab === 'home' && <HomeScreen onStartRounding={() => setRoundingOpen(true)} />}
-                {tab === 'patient' && renderPatientTab()}
-                {tab === 'handoff' && (
-                  precheckOpen ? (
-                    <HandoffPrecheckScreen
-                      onBack={() => setPrecheckOpen(false)}
-                      onDone={() => setPrecheckOpen(false)}
-                    />
-                  ) : (
-                    <HandoffScreen onGoPrecheck={() => setPrecheckOpen(true)} />
-                  )
-                )}
-                {tab === 'task' && <TaskScreen />}
-              </>
-            )}
-          </View>
-          {!roundingOpen && <BottomTabBar current={tab} onChange={changeTab} />}
+  return (
+    <SafeAreaProvider>
+      <StatusBar style="dark" />
+      <View style={styles.root}>
+        <View style={styles.body}>
+          {roundingOpen ? (
+            <RoundingScreen onBack={() => setRoundingOpen(false)} />
+          ) : (
+            <>
+              {tab === 'home' && (
+                transcriptOpen ? (
+                  <RecordTranscriptScreen onBack={() => setTranscriptOpen(false)} />
+                ) : (
+                  <HomeScreen
+                    onStartRounding={() => setRoundingOpen(true)}
+                    onOpenTranscript={() => setTranscriptOpen(true)}
+                  />
+                )
+              )}
+              {tab === 'patient' && renderPatientTab()}
+              {tab === 'handoff' && (
+                precheckOpen ? (
+                  <HandoffPrecheckScreen
+                    onBack={() => setPrecheckOpen(false)}
+                    onDone={() => setPrecheckOpen(false)}
+                  />
+                ) : (
+                  <HandoffScreen onGoPrecheck={() => setPrecheckOpen(true)} />
+                )
+              )}
+              {tab === 'task' && <TaskScreen />}
+            </>
+          )}
         </View>
-      </SafeAreaProvider>
-      );
+        {!roundingOpen && <BottomTabBar current={tab} onChange={changeTab} />}
+      </View>
+    </SafeAreaProvider>
+  );
 }
 
-      const styles = StyleSheet.create({
-        root: {flex: 1, backgroundColor: colors.bg },
-      body: {flex: 1 },
-      placeholder: {flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.bg },
-      placeholderText: {...font.h2, color: colors.textDim },
+const styles = StyleSheet.create({
+  root: { flex: 1, backgroundColor: colors.bg },
+  body: { flex: 1 },
+  placeholder: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.bg },
+  placeholderText: { ...font.h2, color: colors.textDim },
 });

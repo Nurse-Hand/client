@@ -7,7 +7,12 @@ import { SHIFT_LABEL, SHIFT_ICON } from '../types';
 import { colors, spacing, radius, font } from '../theme';
 import QuickRecordCard from '../components/QuickRecordCard';
 
-export default function HomeScreen({ onStartRounding }: { onStartRounding: () => void }) {
+export default function HomeScreen({
+    onStartRounding, onOpenTranscript,
+}: {
+    onStartRounding: () => void;
+    onOpenTranscript: () => void;
+}) {
     const insets = useSafeAreaInsets();
     const { nurseName, today, duty } = homeSummary;
 
@@ -59,7 +64,7 @@ export default function HomeScreen({ onStartRounding }: { onStartRounding: () =>
 
             <QuickRecordCard />
             <Card title="오늘 기록 보기" actionLabel="전체 기록보기">
-                <Pressable style={styles.listRow}>
+                <Pressable style={styles.listRow} onPress={onOpenTranscript}>
                     <Image
                         source={require('../../assets/icons/document.png')}
                         style={styles.listIcon}
