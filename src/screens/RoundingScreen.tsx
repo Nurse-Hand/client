@@ -117,516 +117,528 @@ export default function RoundingScreen({ onBack, onAnalysisStart }: Props) {
     try {
       const session = await startSession(startedAt);
       setSessionId(session.id);
-    } catch (e: any) {
-      console.log('세션 시작 실패:', e.code, e.message);
+    } catch {
+      Alert.alert('세션 시작 실패', '서버에 연결하지 못했어요. 녹음은 로컬에 저장됩니다.');
     }
-    segmentStartRef.current = startedAt;
-    await rec.start();
+  segmentStartRef.current = startedAt;
+  await rec.start();
+  setPhase('RECORDING');
+};
+
+const handleTogglePause = () => {
+  if (phase === 'RECORDING') {
+    rec.pause();
+    setPhase('PAUSED');
+  } else {
+    rec.resume();
     setPhase('RECORDING');
-  };
+  }
+};
 
-  const handleTogglePause = () => {
-    if (phase === 'RECORDING') {
-      rec.pause();
-      setPhase('PAUSED');
-    } else {
-      rec.resume();
-      setPhase('RECORDING');
-    }
-  };
+const closeCurrentSegment = async () => {
+  const endedAt = nowIso();
+  const startedAt = segmentStartRef.current;
+  const sequence = segments.length + 1;
+  const note = DEMO_NOTES[segments.length % DEMO_NOTES.length];
 
-  const closeCurrentSegment = async () => {
-    const endedAt = nowIso();
-    const startedAt = segmentStartRef.current;
-    const sequence = segments.length + 1;
-    const note = DEMO_NOTES[segments.length % DEMO_NOTES.length];
+  let synced = false;
+  let recordId: string | undefined;
 
-    let synced = false;
-    let recordId: string | undefined;
-
-    if (sessionId && patientId) {
-      try {
-        await addSegment(sessionId, { patientId, startedAt, endedAt, note });
-        console.log('세그먼트 저장:', sequence, note.slice(0, 18));
-        synced = true;
-      } catch (e: any) {
-        console.log('세그먼트 저장 실패:', e.code, e.message);
-      }
-
-      try {
-        const rec = await saveRecord(sessionId, { patientId, startedAt, endedAt, note });
-        recordId = rec.recordId;
-        console.log('기록 저장:', rec.recordId);
-      } catch (e: any) {
-        console.log('기록 저장 실패:', e.code, e.message);
-      }
-    }
-
-    setSegments((prev) => [
-      ...prev,
-      { sequence, patientId, startedAt, endedAt, synced, recordId },
-    ]);
-    segmentStartRef.current = endedAt;
-    setPatientId(null);
-  };
-
-  const handleFinish = async () => {
-    setPhase('FINISHING');
-
-    const endedAt = nowIso();
-    const startedAt = segmentStartRef.current;
-    const lastPatientId = patientId;
-
-    const uri = await rec.stop();
-    console.log('세션 파일 uri:', uri);
-
-    let audioFileId: string | undefined;
-
+  if (sessionId && patientId) {
     try {
-      if (uri) {
-        const file = await uploadAudio(uri);
-        audioFileId = file.id;
-        console.log('세션 오디오 업로드 성공:', file.id);
-      }
-    } catch (e: any) {
-      console.log('오디오 업로드 실패:', e.code, e.message);
-    }
-
-    if (sessionId && lastPatientId) {
-      const note = DEMO_NOTES[segments.length % DEMO_NOTES.length];
-
-      try {
-        await addSegment(sessionId, { patientId: lastPatientId, startedAt, endedAt, note });
-        console.log('마지막 세그먼트 저장:', note.slice(0, 18));
-      } catch (e: any) {
-        console.log('마지막 세그먼트 저장 실패:', e.code, e.message);
-      }
-
-      try {
-        const record = await saveRecord(sessionId, {
-          patientId: lastPatientId,
-          startedAt,
-          endedAt,
-          note,
-        });
-        console.log('마지막 기록 저장:', record.recordId);
-      } catch (e: any) {
-        console.log('마지막 기록 저장 실패:', e.code, e.message);
-      }
+      await addSegment(sessionId, { patientId, startedAt, endedAt, note });
+      synced = true;
+    } catch {
+      // 아래에서 안내
     }
 
     try {
-      if (sessionId) {
-        await completeSession(sessionId, endedAt);
-        console.log('세션 종료 완료');
-      }
-    } catch (e: any) {
-      console.log('세션 종료 실패:', e.code, e.message);
+      const rec = await saveRecord(sessionId, { patientId, startedAt, endedAt, note });
+      recordId = rec.recordId;
+    } catch {
+      // 아래에서 안내
     }
 
-    if (sessionId && audioFileId) {
-      try {
-        const job = await startAnalysis(sessionId, audioFileId);
-        console.log('분석 시작:', job.jobId);
-        onAnalysisStart(sessionId, job.jobId);
-        return;
-      } catch (e: any) {
-        console.log('분석 시작 실패:', e.code, e.message);
-      }
-    }
-
-    onBack();
-  };
-
-  const confirmFinish = () => {
-    Alert.alert('라운딩 종료', '녹음을 종료하고 서버로 전송할까요?', [
-      { text: '취소', style: 'cancel' },
-      { text: '종료', style: 'destructive', onPress: handleFinish },
-    ]);
-  };
-
-  const submitMemo = () => {
-    const text = memoText.trim();
-    if (!text) return;
-
-    if (editingId) {
-      setChatItems((prev) =>
-        prev.map((c) => (c.id === editingId ? { ...c, content: text } : c)),
+    if (!synced) {
+      Alert.alert(
+        '구간 저장 실패',
+        '환자 구간이 저장되지 않았어요. 네트워크를 확인해주세요.\n녹음은 계속 진행됩니다.',
       );
-      setEditingId(null);
-    } else {
-      setChatItems((prev) => [
-        ...prev,
-        {
-          id: `m${Date.now()}`,
-          kind: 'MEMO',
-          content: text,
-          patientLabel: selectedLabel ?? undefined,
-          createdAt: nowTime(),
-        },
-      ]);
-      if (!expandedRef.current) snapTo(true);
-      scrollChatToEnd();
     }
-
-    setMemoText('');
-  };
-
-  const closeComposer = () => {
-    setComposerOpen(false);
-    if (editingId) {
-      setEditingId(null);
-      setMemoText('');
-    }
-  };
-
-  const startEditMemo = (item: ChatItem) => {
-    setEditingId(item.id);
-    setMemoText(item.content);
-    setComposerOpen(true);
-  };
-
-  const pickPhoto = async (replaceId?: string) => {
-    const perm = await ImagePicker.requestCameraPermissionsAsync();
-    const result = perm.granted
-      ? await ImagePicker.launchCameraAsync({ quality: 0.7 })
-      : await ImagePicker.launchImageLibraryAsync({ quality: 0.7 });
-
-    if (result.canceled) return;
-    const asset = result.assets[0];
-
-    let targetId = replaceId;
-
-    if (replaceId) {
-      setChatItems((prev) =>
-        prev.map((c) =>
-          c.id === replaceId ? { ...c, content: asset.uri, fileId: undefined } : c,
-        ),
-      );
-    } else {
-      targetId = `p${Date.now()}`;
-      setChatItems((prev) => [
-        ...prev,
-        { id: targetId as string, kind: 'PHOTO', content: asset.uri, createdAt: nowTime() },
-      ]);
-      if (!expandedRef.current) snapTo(true);
-      scrollChatToEnd();
-    }
-
-    try {
-      const file = await uploadPhoto(asset.uri);
-      setChatItems((prev) => prev.map((c) => (c.id === targetId ? { ...c, fileId: file.id } : c)));
-    } catch (e: any) {
-      console.log('사진 업로드 실패:', e.code, e.message);
-    }
-  };
-
-  const confirmRemove = (item: ChatItem) => {
-    const label = item.kind === 'PHOTO' ? '사진을' : '메모를';
-    Alert.alert('삭제', `${label} 삭제할까요?`, [
-      { text: '취소', style: 'cancel' },
-      {
-        text: '삭제',
-        style: 'destructive',
-        onPress: () => setChatItems((prev) => prev.filter((c) => c.id !== item.id)),
-      },
-    ]);
-  };
-
-  if (phase === 'IDLE') {
-    return (
-      <View style={[styles.root, { paddingTop: insets.top + spacing.sm }]}>
-        <NavBar onBack={onBack} />
-
-        {helpVisible ? (
-          <View style={[styles.card, styles.cardSide]}>
-            <View style={styles.rowBetween}>
-              <Text style={styles.brandTitle}>✦ NurseHand</Text>
-              <Pressable onPress={() => setHelpVisible(false)} hitSlop={10}>
-                <Text style={styles.closeIcon}>✕</Text>
-              </Pressable>
-            </View>
-            <Text style={styles.helpText}>
-              녹음을 시작하고, 필요한 내용은 메모나 사진으로 추가해 보세요.
-              NurseHand AI가 실시간으로 분석하여 라운딩 기록을 정리해 드려요.
-            </Text>
-          </View>
-        ) : null}
-
-        <View style={styles.idleCenter}>
-          <Text style={styles.idleText}>녹음 시작</Text>
-          <Pressable style={styles.micOuter} onPress={handleStart} disabled={!rec.ready}>
-            <View style={styles.micMid}>
-              <View style={styles.micInner}>
-                <Image
-                  source={require('../../assets/icons/mic2.png')}
-                  style={styles.micIcon}
-                  resizeMode="contain"
-                />
-              </View>
-            </View>
-          </Pressable>
-          {rec.error ? <Text style={styles.error}>{rec.error}</Text> : null}
-        </View>
-      </View>
-    );
   }
 
+  setSegments((prev) => [
+    ...prev,
+    { sequence, patientId, startedAt, endedAt, synced, recordId },
+  ]);
+  segmentStartRef.current = endedAt;
+  setPatientId(null);
+};
+
+const handleFinish = async () => {
+  setPhase('FINISHING');
+
+  const endedAt = nowIso();
+  const startedAt = segmentStartRef.current;
+  const lastPatientId = patientId;
+  const failed: string[] = [];
+
+  const uri = await rec.stop();
+
+  let audioFileId: string | undefined;
+
+  if (uri) {
+    try {
+      const file = await uploadAudio(uri);
+      audioFileId = file.id;
+    } catch {
+      failed.push('녹음 파일 업로드');
+    }
+  }
+
+  if (sessionId && lastPatientId) {
+    const note = DEMO_NOTES[segments.length % DEMO_NOTES.length];
+
+    try {
+      await addSegment(sessionId, { patientId: lastPatientId, startedAt, endedAt, note });
+    } catch {
+      failed.push('마지막 환자 구간');
+    }
+
+    try {
+      await saveRecord(sessionId, { patientId: lastPatientId, startedAt, endedAt, note });
+    } catch {
+      failed.push('마지막 환자 기록');
+    }
+  }
+
+  if (sessionId) {
+    try {
+      await completeSession(sessionId, endedAt);
+    } catch {
+      failed.push('라운딩 종료 처리');
+    }
+  }
+
+  if (failed.length > 0) {
+    setPhase('RECORDING');
+    Alert.alert(
+      '일부 저장에 실패했어요',
+      `${failed.join(', ')}에 실패했습니다.\n네트워크를 확인하고 다시 시도해주세요.`,
+      [
+        { text: '나가기', style: 'destructive', onPress: onBack },
+        { text: '다시 시도', onPress: handleFinish },
+      ],
+    );
+    return;
+  }
+
+  if (sessionId && audioFileId) {
+    try {
+      const job = await startAnalysis(sessionId, audioFileId);
+      onAnalysisStart(sessionId, job.jobId);
+      return;
+    } catch {
+      Alert.alert(
+        '분석을 시작하지 못했어요',
+        '기록은 저장되었습니다. 나중에 다시 확인해주세요.',
+        [{ text: '확인', onPress: onBack }],
+      );
+      return;
+    }
+  }
+
+  onBack();
+};
+
+const confirmFinish = () => {
+  Alert.alert('라운딩 종료', '녹음을 종료하고 서버로 전송할까요?', [
+    { text: '취소', style: 'cancel' },
+    { text: '종료', style: 'destructive', onPress: handleFinish },
+  ]);
+};
+
+const submitMemo = () => {
+  const text = memoText.trim();
+  if (!text) return;
+
+  if (editingId) {
+    setChatItems((prev) =>
+      prev.map((c) => (c.id === editingId ? { ...c, content: text } : c)),
+    );
+    setEditingId(null);
+  } else {
+    setChatItems((prev) => [
+      ...prev,
+      {
+        id: `m${Date.now()}`,
+        kind: 'MEMO',
+        content: text,
+        patientLabel: selectedLabel ?? undefined,
+        createdAt: nowTime(),
+      },
+    ]);
+    if (!expandedRef.current) snapTo(true);
+    scrollChatToEnd();
+  }
+
+  setMemoText('');
+};
+
+const closeComposer = () => {
+  setComposerOpen(false);
+  if (editingId) {
+    setEditingId(null);
+    setMemoText('');
+  }
+};
+
+const startEditMemo = (item: ChatItem) => {
+  setEditingId(item.id);
+  setMemoText(item.content);
+  setComposerOpen(true);
+};
+
+const pickPhoto = async (replaceId?: string) => {
+  const perm = await ImagePicker.requestCameraPermissionsAsync();
+  const result = perm.granted
+    ? await ImagePicker.launchCameraAsync({ quality: 0.7 })
+    : await ImagePicker.launchImageLibraryAsync({ quality: 0.7 });
+
+  if (result.canceled) return;
+  const asset = result.assets[0];
+
+  let targetId = replaceId;
+
+  if (replaceId) {
+    setChatItems((prev) =>
+      prev.map((c) =>
+        c.id === replaceId ? { ...c, content: asset.uri, fileId: undefined } : c,
+      ),
+    );
+  } else {
+    targetId = `p${Date.now()}`;
+    setChatItems((prev) => [
+      ...prev,
+      { id: targetId as string, kind: 'PHOTO', content: asset.uri, createdAt: nowTime() },
+    ]);
+    if (!expandedRef.current) snapTo(true);
+    scrollChatToEnd();
+  }
+
+  try {
+    const file = await uploadPhoto(asset.uri);
+    setChatItems((prev) => prev.map((c) => (c.id === targetId ? { ...c, fileId: file.id } : c)));
+  } catch (e: any) {//
+  }
+};
+
+const confirmRemove = (item: ChatItem) => {
+  const label = item.kind === 'PHOTO' ? '사진을' : '메모를';
+  Alert.alert('삭제', `${label} 삭제할까요?`, [
+    { text: '취소', style: 'cancel' },
+    {
+      text: '삭제',
+      style: 'destructive',
+      onPress: () => setChatItems((prev) => prev.filter((c) => c.id !== item.id)),
+    },
+  ]);
+};
+
+if (phase === 'IDLE') {
   return (
     <View style={[styles.root, { paddingTop: insets.top + spacing.sm }]}>
       <NavBar onBack={onBack} />
 
-      {sheetExpanded ? (
-        <View style={styles.compactWrap}>
-          <View style={styles.compactCard}>
-            <View style={styles.compactTop}>
-              <View style={styles.recDot} />
-              <Text style={styles.compactTimer}>{formatDuration(rec.durationMs)}</Text>
-            </View>
-
-            <Waveform levels={rec.levels} />
-
-            <View style={styles.compactBtnRow}>
-              <Pressable style={styles.compactPause} onPress={handleTogglePause}>
-                <Text style={styles.compactPauseIcon}>
-                  {phase === 'RECORDING' ? '❚❚' : '▶'}
-                </Text>
-              </Pressable>
-              <Pressable style={styles.compactStop} onPress={confirmFinish}>
-                <View style={styles.stopSquare} />
-              </Pressable>
-            </View>
-          </View>
-        </View>
-      ) : (
-        <ScrollView
-          style={styles.upper}
-          contentContainerStyle={styles.upperContent}
-          showsVerticalScrollIndicator={false}
-        >
-          <View style={styles.card}>
-            <View style={styles.rowBetween}>
-              <Text style={styles.dateText}>
-                {new Date().toLocaleDateString('ko-KR', {
-                  year: '2-digit', month: '2-digit', day: '2-digit',
-                })}
-              </Text>
-              <View style={styles.aiBadge}>
-                <Text style={styles.aiBadgeText}>AI 식별</Text>
-              </View>
-            </View>
-
-            <View style={[styles.speechChip, rec.isSpeech && styles.speechChipActive]}>
-              <Text style={[styles.speechText, rec.isSpeech && styles.speechTextActive]}>
-                {rec.isSpeech ? '발화 중' : '대기 중'}
-              </Text>
-            </View>
-
-            <Waveform levels={rec.levels} />
-
-            <View style={styles.rowBetween}>
-              <Text style={styles.timer}>{formatDuration(rec.durationMs)}</Text>
-              <Pressable style={styles.pauseBtn} onPress={handleTogglePause}>
-                <Text style={styles.pauseIcon}>{phase === 'RECORDING' ? '❚❚' : '▶'}</Text>
-              </Pressable>
-            </View>
-
-            <View style={styles.divider} />
-
-            <Text style={styles.fieldLabel}>환자 지정 (선택)</Text>
-            <Pressable style={styles.select} onPress={() => setPickerOpen(true)}>
-              <Image
-                source={require('../../assets/icons/person.png')}
-                style={styles.selectIcon}
-                resizeMode="contain"
-              />
-              <Text style={[styles.selectText, !selected && styles.selectPlaceholder]}>
-                {selectedLabel ?? '환자 선택'}
-              </Text>
-              <Text style={styles.selectChevron}>⌄</Text>
+      {helpVisible ? (
+        <View style={[styles.card, styles.cardSide]}>
+          <View style={styles.rowBetween}>
+            <Text style={styles.brandTitle}>✦ NurseHand</Text>
+            <Pressable onPress={() => setHelpVisible(false)} hitSlop={10}>
+              <Text style={styles.closeIcon}>✕</Text>
             </Pressable>
-
-            <Text style={styles.hintText}>버튼을 누르면 자동으로 다음 환자 녹음이 시작돼요</Text>
-
-            <Pressable style={styles.primaryBtn} onPress={closeCurrentSegment}>
-              <Text style={styles.primaryBtnText}>현재 환자 종료</Text>
-            </Pressable>
-
-            <Pressable style={styles.finishBtn} onPress={confirmFinish}>
-              <Text style={styles.finishText}>라운딩 종료</Text>
-            </Pressable>
-
-            {segments.length > 0 ? (
-              <Text style={styles.segCount}>기록된 환자 구간 {segments.length}건</Text>
-            ) : null}
           </View>
-
-          {tipVisible ? (
-            <View style={styles.card}>
-              <View style={styles.rowBetween}>
-                <Text style={styles.brandTitle}>✦ Tip</Text>
-                <Pressable onPress={() => setTipVisible(false)} hitSlop={10}>
-                  <Text style={styles.closeIcon}>✕</Text>
-                </Pressable>
-              </View>
-              <Text style={styles.tipText}>환자를 지정해주시면 더 정확한 기록이 가능해요!</Text>
-            </View>
-          ) : null}
-        </ScrollView>
-      )}
-
-      <Animated.View style={[styles.sheetWrap, { height: sheetHeight }]}>
-        <View {...panResponder.panHandlers} style={styles.grabArea}>
-          <View style={styles.handleBar} />
-        </View>
-
-        <ScrollView
-          ref={chatScrollRef}
-          style={styles.chatList}
-          contentContainerStyle={styles.chatContent}
-          showsVerticalScrollIndicator={false}
-        >
-          {chatItems.length === 0 ? (
-            <Text style={styles.emptyText}>메모나 사진으로 필요한 내용을 추가하세요</Text>
-          ) : (
-            chatItems.map((item) => (
-              <View key={item.id} style={styles.chatItem}>
-                <Text style={styles.timeChip}>{item.createdAt}</Text>
-
-                <View style={styles.itemActions}>
-                  <Pressable
-                    hitSlop={8}
-                    onPress={() =>
-                      item.kind === 'PHOTO' ? pickPhoto(item.id) : startEditMemo(item)
-                    }
-                  >
-                    <Image
-                      source={require('../../assets/icons/edit.png')}
-                      style={styles.actionIcon}
-                      resizeMode="contain"
-                    />
-                  </Pressable>
-                  <Pressable hitSlop={8} onPress={() => confirmRemove(item)}>
-                    <Image
-                      source={require('../../assets/icons/trash.png')}
-                      style={styles.actionIcon}
-                      resizeMode="contain"
-                    />
-                  </Pressable>
-                </View>
-
-                {item.kind === 'PHOTO' ? (
-                  <Image source={{ uri: item.content }} style={styles.photo} resizeMode="cover" />
-                ) : (
-                  <View style={styles.bubble}>
-                    <Text style={styles.bubbleText}>
-                      {item.patientLabel ? `@${item.patientLabel}, ` : ''}
-                      {item.content}
-                    </Text>
-                  </View>
-                )}
-              </View>
-            ))
-          )}
-        </ScrollView>
-
-        <View style={[styles.inputRow, { paddingBottom: Math.max(insets.bottom, spacing.md) }]}>
-          <Pressable style={styles.cameraBtn} onPress={() => pickPhoto()} hitSlop={6}>
-            <Image
-              source={require('../../assets/icons/camera.png')}
-              style={styles.cameraIcon}
-              resizeMode="contain"
-            />
-          </Pressable>
-
-          <Pressable style={styles.inputFake} onPress={() => setComposerOpen(true)}>
-            <Text style={styles.inputFakeText} numberOfLines={1}>
-              {memoText ? memoText : '메모나 사진으로 필요한 내용을 추가하세요'}
-            </Text>
-          </Pressable>
-        </View>
-      </Animated.View>
-
-      <Modal
-        visible={composerOpen}
-        transparent
-        animationType="fade"
-        onRequestClose={closeComposer}
-      >
-        <KeyboardAvoidingView
-          style={styles.composerRoot}
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        >
-          <Pressable style={styles.flex} onPress={closeComposer} />
-
-          <View style={[styles.composerBar, { paddingBottom: Math.max(insets.bottom, spacing.md) }]}>
-            {editingId ? (
-              <View style={styles.editingChip}>
-                <Text style={styles.editingText}>메모 수정 중</Text>
-              </View>
-            ) : null}
-
-            <View style={styles.composerRow}>
-              <Pressable
-                style={styles.cameraBtn}
-                onPress={() => {
-                  setComposerOpen(false);
-                  setTimeout(() => pickPhoto(), 220);
-                }}
-                hitSlop={6}
-              >
-                <Image
-                  source={require('../../assets/icons/camera.png')}
-                  style={styles.cameraIcon}
-                  resizeMode="contain"
-                />
-              </Pressable>
-
-              <TextInput
-                style={styles.input}
-                placeholder="메모나 사진으로 필요한 내용을 추가하세요"
-                placeholderTextColor={colors.textDim}
-                value={memoText}
-                onChangeText={setMemoText}
-                autoFocus
-                multiline
-              />
-
-              <Pressable
-                style={[styles.sendBtn, !memoText.trim() && styles.sendBtnOff]}
-                onPress={() => {
-                  submitMemo();
-                  Keyboard.dismiss();
-                  setComposerOpen(false);
-                }}
-                disabled={!memoText.trim()}
-              >
-                <Text style={styles.sendIcon}>↑</Text>
-              </Pressable>
-            </View>
-          </View>
-        </KeyboardAvoidingView>
-      </Modal>
-
-      {phase === 'FINISHING' ? (
-        <View style={styles.overlay}>
-          <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={styles.overlayText}>라운딩을 저장하고 있어요...</Text>
+          <Text style={styles.helpText}>
+            녹음을 시작하고, 필요한 내용은 메모나 사진으로 추가해 보세요.
+            NurseHand AI가 실시간으로 분석하여 라운딩 기록을 정리해 드려요.
+          </Text>
         </View>
       ) : null}
 
-      <PatientPicker
-        visible={pickerOpen}
-        patients={patients}
-        selectedId={patientId}
-        onSelect={(id) => {
-          setPatientId(id);
-          setPickerOpen(false);
-        }}
-        onClose={() => setPickerOpen(false)}
-      />
+      <View style={styles.idleCenter}>
+        <Text style={styles.idleText}>녹음 시작</Text>
+        <Pressable style={styles.micOuter} onPress={handleStart} disabled={!rec.ready}>
+          <View style={styles.micMid}>
+            <View style={styles.micInner}>
+              <Image
+                source={require('../../assets/icons/mic2.png')}
+                style={styles.micIcon}
+                resizeMode="contain"
+              />
+            </View>
+          </View>
+        </Pressable>
+        {rec.error ? <Text style={styles.error}>{rec.error}</Text> : null}
+      </View>
     </View>
   );
+}
+
+return (
+  <View style={[styles.root, { paddingTop: insets.top + spacing.sm }]}>
+    <NavBar onBack={onBack} />
+
+    {sheetExpanded ? (
+      <View style={styles.compactWrap}>
+        <View style={styles.compactCard}>
+          <View style={styles.compactTop}>
+            <View style={styles.recDot} />
+            <Text style={styles.compactTimer}>{formatDuration(rec.durationMs)}</Text>
+          </View>
+
+          <Waveform levels={rec.levels} />
+
+          <View style={styles.compactBtnRow}>
+            <Pressable style={styles.compactPause} onPress={handleTogglePause}>
+              <Text style={styles.compactPauseIcon}>
+                {phase === 'RECORDING' ? '❚❚' : '▶'}
+              </Text>
+            </Pressable>
+            <Pressable style={styles.compactStop} onPress={confirmFinish}>
+              <View style={styles.stopSquare} />
+            </Pressable>
+          </View>
+        </View>
+      </View>
+    ) : (
+      <ScrollView
+        style={styles.upper}
+        contentContainerStyle={styles.upperContent}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.card}>
+          <View style={styles.rowBetween}>
+            <Text style={styles.dateText}>
+              {new Date().toLocaleDateString('ko-KR', {
+                year: '2-digit', month: '2-digit', day: '2-digit',
+              })}
+            </Text>
+            <View style={styles.aiBadge}>
+              <Text style={styles.aiBadgeText}>AI 식별</Text>
+            </View>
+          </View>
+
+          <View style={[styles.speechChip, rec.isSpeech && styles.speechChipActive]}>
+            <Text style={[styles.speechText, rec.isSpeech && styles.speechTextActive]}>
+              {rec.isSpeech ? '발화 중' : '대기 중'}
+            </Text>
+          </View>
+
+          <Waveform levels={rec.levels} />
+
+          <View style={styles.rowBetween}>
+            <Text style={styles.timer}>{formatDuration(rec.durationMs)}</Text>
+            <Pressable style={styles.pauseBtn} onPress={handleTogglePause}>
+              <Text style={styles.pauseIcon}>{phase === 'RECORDING' ? '❚❚' : '▶'}</Text>
+            </Pressable>
+          </View>
+
+          <View style={styles.divider} />
+
+          <Text style={styles.fieldLabel}>환자 지정 (선택)</Text>
+          <Pressable style={styles.select} onPress={() => setPickerOpen(true)}>
+            <Image
+              source={require('../../assets/icons/person.png')}
+              style={styles.selectIcon}
+              resizeMode="contain"
+            />
+            <Text style={[styles.selectText, !selected && styles.selectPlaceholder]}>
+              {selectedLabel ?? '환자 선택'}
+            </Text>
+            <Text style={styles.selectChevron}>⌄</Text>
+          </Pressable>
+
+          <Text style={styles.hintText}>버튼을 누르면 자동으로 다음 환자 녹음이 시작돼요</Text>
+
+          <Pressable style={styles.primaryBtn} onPress={closeCurrentSegment}>
+            <Text style={styles.primaryBtnText}>현재 환자 종료</Text>
+          </Pressable>
+
+          <Pressable style={styles.finishBtn} onPress={confirmFinish}>
+            <Text style={styles.finishText}>라운딩 종료</Text>
+          </Pressable>
+
+          {segments.length > 0 ? (
+            <Text style={styles.segCount}>기록된 환자 구간 {segments.length}건</Text>
+          ) : null}
+        </View>
+
+        {tipVisible ? (
+          <View style={styles.card}>
+            <View style={styles.rowBetween}>
+              <Text style={styles.brandTitle}>✦ Tip</Text>
+              <Pressable onPress={() => setTipVisible(false)} hitSlop={10}>
+                <Text style={styles.closeIcon}>✕</Text>
+              </Pressable>
+            </View>
+            <Text style={styles.tipText}>환자를 지정해주시면 더 정확한 기록이 가능해요!</Text>
+          </View>
+        ) : null}
+      </ScrollView>
+    )}
+
+    <Animated.View style={[styles.sheetWrap, { height: sheetHeight }]}>
+      <View {...panResponder.panHandlers} style={styles.grabArea}>
+        <View style={styles.handleBar} />
+      </View>
+
+      <ScrollView
+        ref={chatScrollRef}
+        style={styles.chatList}
+        contentContainerStyle={styles.chatContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {chatItems.length === 0 ? (
+          <Text style={styles.emptyText}>메모나 사진으로 필요한 내용을 추가하세요</Text>
+        ) : (
+          chatItems.map((item) => (
+            <View key={item.id} style={styles.chatItem}>
+              <Text style={styles.timeChip}>{item.createdAt}</Text>
+
+              <View style={styles.itemActions}>
+                <Pressable
+                  hitSlop={8}
+                  onPress={() =>
+                    item.kind === 'PHOTO' ? pickPhoto(item.id) : startEditMemo(item)
+                  }
+                >
+                  <Image
+                    source={require('../../assets/icons/edit.png')}
+                    style={styles.actionIcon}
+                    resizeMode="contain"
+                  />
+                </Pressable>
+                <Pressable hitSlop={8} onPress={() => confirmRemove(item)}>
+                  <Image
+                    source={require('../../assets/icons/trash.png')}
+                    style={styles.actionIcon}
+                    resizeMode="contain"
+                  />
+                </Pressable>
+              </View>
+
+              {item.kind === 'PHOTO' ? (
+                <Image source={{ uri: item.content }} style={styles.photo} resizeMode="cover" />
+              ) : (
+                <View style={styles.bubble}>
+                  <Text style={styles.bubbleText}>
+                    {item.patientLabel ? `@${item.patientLabel}, ` : ''}
+                    {item.content}
+                  </Text>
+                </View>
+              )}
+            </View>
+          ))
+        )}
+      </ScrollView>
+
+      <View style={[styles.inputRow, { paddingBottom: Math.max(insets.bottom, spacing.md) }]}>
+        <Pressable style={styles.cameraBtn} onPress={() => pickPhoto()} hitSlop={6}>
+          <Image
+            source={require('../../assets/icons/camera.png')}
+            style={styles.cameraIcon}
+            resizeMode="contain"
+          />
+        </Pressable>
+
+        <Pressable style={styles.inputFake} onPress={() => setComposerOpen(true)}>
+          <Text style={styles.inputFakeText} numberOfLines={1}>
+            {memoText ? memoText : '메모나 사진으로 필요한 내용을 추가하세요'}
+          </Text>
+        </Pressable>
+      </View>
+    </Animated.View>
+
+    <Modal
+      visible={composerOpen}
+      transparent
+      animationType="fade"
+      onRequestClose={closeComposer}
+    >
+      <KeyboardAvoidingView
+        style={styles.composerRoot}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
+        <Pressable style={styles.flex} onPress={closeComposer} />
+
+        <View style={[styles.composerBar, { paddingBottom: Math.max(insets.bottom, spacing.md) }]}>
+          {editingId ? (
+            <View style={styles.editingChip}>
+              <Text style={styles.editingText}>메모 수정 중</Text>
+            </View>
+          ) : null}
+
+          <View style={styles.composerRow}>
+            <Pressable
+              style={styles.cameraBtn}
+              onPress={() => {
+                setComposerOpen(false);
+                setTimeout(() => pickPhoto(), 220);
+              }}
+              hitSlop={6}
+            >
+              <Image
+                source={require('../../assets/icons/camera.png')}
+                style={styles.cameraIcon}
+                resizeMode="contain"
+              />
+            </Pressable>
+
+            <TextInput
+              style={styles.input}
+              placeholder="메모나 사진으로 필요한 내용을 추가하세요"
+              placeholderTextColor={colors.textDim}
+              value={memoText}
+              onChangeText={setMemoText}
+              autoFocus
+              multiline
+            />
+
+            <Pressable
+              style={[styles.sendBtn, !memoText.trim() && styles.sendBtnOff]}
+              onPress={() => {
+                submitMemo();
+                Keyboard.dismiss();
+                setComposerOpen(false);
+              }}
+              disabled={!memoText.trim()}
+            >
+              <Text style={styles.sendIcon}>↑</Text>
+            </Pressable>
+          </View>
+        </View>
+      </KeyboardAvoidingView>
+    </Modal>
+
+    {phase === 'FINISHING' ? (
+      <View style={styles.overlay}>
+        <ActivityIndicator size="large" color={colors.primary} />
+        <Text style={styles.overlayText}>라운딩을 저장하고 있어요...</Text>
+      </View>
+    ) : null}
+
+    <PatientPicker
+      visible={pickerOpen}
+      patients={patients}
+      selectedId={patientId}
+      onSelect={(id) => {
+        setPatientId(id);
+        setPickerOpen(false);
+      }}
+      onClose={() => setPickerOpen(false)}
+    />
+  </View>
+);
 }
 
 function NavBar({ onBack }: { onBack: () => void }) {
