@@ -12,6 +12,7 @@ import TaskScreen from './src/screens/TaskScreen';
 import HandoffPrecheckScreen from './src/screens/HandoffPrecheckScreen';
 import OnboardingScreen from './src/screens/OnboardingScreen';
 import RecordTranscriptScreen from './src/screens/RecordTranscriptScreen';
+import HandoffDraftScreen from './src/screens/HandoffDraftScreen';
 import { TabKey } from './src/types';
 import { colors, font } from './src/theme';
 
@@ -30,6 +31,7 @@ export default function App() {
   const [precheckOpen, setPrecheckOpen] = useState(false);
   const [onboardingDone, setOnboardingDone] = useState(false);
   const [transcriptOpen, setTranscriptOpen] = useState(false);
+  const [draftOpen, setDraftOpen] = useState(false);
 
   const changeTab = (next: TabKey) => {
     setDetailPatientId(null);
@@ -76,13 +78,24 @@ export default function App() {
               )}
               {tab === 'patient' && renderPatientTab()}
               {tab === 'handoff' && (
-                precheckOpen ? (
+                draftOpen ? (
+                  <HandoffDraftScreen
+                    onBack={() => setDraftOpen(false)}
+                    onComplete={() => setDraftOpen(false)}
+                  />
+                ) : precheckOpen ? (
                   <HandoffPrecheckScreen
                     onBack={() => setPrecheckOpen(false)}
-                    onDone={() => setPrecheckOpen(false)}
+                    onDone={() => {
+                      setPrecheckOpen(false);
+                      setDraftOpen(true);
+                    }}
                   />
                 ) : (
-                  <HandoffScreen onGoPrecheck={() => setPrecheckOpen(true)} />
+                  <HandoffScreen
+                    onGoPrecheck={() => setPrecheckOpen(true)}
+                    onGoDraft={() => setDraftOpen(true)}
+                  />
                 )
               )}
               {tab === 'task' && <TaskScreen />}

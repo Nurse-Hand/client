@@ -5,7 +5,13 @@ import { handoffRecords, pendingChecks, hasIncomingHandoff } from '../mocks/hand
 import { HandoffRecord, SHIFT_ICON } from '../types';
 import { colors, spacing, radius, font, layout } from '../theme';
 
-export default function HandoffScreen({ onGoPrecheck }: { onGoPrecheck: () => void }) {
+export default function HandoffScreen({
+    onGoPrecheck,
+    onGoDraft,
+}: {
+    onGoPrecheck: () => void;
+    onGoDraft: () => void;
+}) {
     const insets = useSafeAreaInsets();
     const [checkModalOpen, setCheckModalOpen] = useState(false);
 
@@ -70,17 +76,14 @@ export default function HandoffScreen({ onGoPrecheck }: { onGoPrecheck: () => vo
                 </View>
             </ScrollView>
 
-            <PendingCheckModal
-                visible={checkModalOpen}
-                onDismiss={() => {
-                    setCheckModalOpen(false);
-                    onGoPrecheck();
-                }}
-                onConfirm={() => {
-                    setCheckModalOpen(false);
-                    onGoPrecheck();
-                }}
-            />
+            onDismiss={() => {
+                setCheckModalOpen(false);
+                onGoDraft();
+            }}
+            onConfirm={() => {
+                setCheckModalOpen(false);
+                onGoPrecheck();
+            }}
         </View>
     );
 }
