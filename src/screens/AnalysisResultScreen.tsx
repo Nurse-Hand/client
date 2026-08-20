@@ -45,6 +45,7 @@ export default function AnalysisResultScreen({ sessionId, jobId, onDone }: Props
             if (!alive) return;
             try {
                 const j = await fetchAnalysisJob(jobId);
+                console.log('분석 상태:', j.status, '발화', j.utterances?.length ?? 0, j.failureCode ?? '');
                 if (!alive) return;
                 setJob(j);
 

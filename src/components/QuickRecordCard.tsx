@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
-import { View, Text, Image, Pressable, Modal, ScrollView, StyleSheet } from 'react-native';
+import { View, Text, Image, Pressable, Modal, ScrollView, StyleSheet, Alert } from 'react-native';
 import { useRecorder, formatDuration } from '../hooks/useRecorder';
 import { fetchPatients, ApiPatient } from '../api/patients';
 import { uploadAudio } from '../api/files';
 import { colors, spacing, radius, font } from '../theme';
+import { createQuickNote, NOTE_TYPES, NOTE_TYPE_LABEL, NoteType } from '../api/quickNotes';
 
 type Phase = 'IDLE' | 'RECORDING' | 'PAUSED';
 
@@ -13,6 +14,8 @@ export default function QuickRecordCard() {
     const [patients, setPatients] = useState<ApiPatient[]>([]);
     const [patientId, setPatientId] = useState<string | null>(null);
     const [pickerOpen, setPickerOpen] = useState(false);
+    const [noteType, setNoteType] = useState<NoteType>('OBSERVATION');
+    const [saving, setSaving] = useState(false);
 
     useEffect(() => {
         fetchPatients()
@@ -41,16 +44,35 @@ export default function QuickRecordCard() {
     };
 
     const handleComplete = async () => {
-        const uri = await rec.stop();
-        if (!uri) return;
-
-        try {
-            const file = await uploadAudio(uri);
-            console.log('업로드 성공:', file.id, file.sizeBytes);
-        } catch (e: any) {
-            console.log('업로드 실패:', e.code, e.message, e.status);
+        if (!patientId) {
+            Alert.alert('환자 선택 필요', '기록할 환자를 선택해주세요.');
+            return;
         }
 
+        setSaving(true);
+        const uri = await rec.stop();
+
+        try {
+            let audioFileId: string | undefined;
+            if (uri) {
+                const file = await uploadAudio(uri);
+                audioFileId = file.id;
+                console.log('빠른기록 오디오 업로드:', file.id);
+            }
+
+            const note = await createQuickNote({
+                patientId,
+                noteType,
+                audioFileId,
+                occurredAt: new Date().toISOString(),
+            });
+            console.log('빠른 기록 저장 성공:', note.quickNoteId);
+        } catch (e: any) {
+            console.log('빠른 기록 저장 실패:', e.code, e.message);
+            Alert.alert('저장 실패', e.message ?? '다시 시도해주세요');
+        }
+
+        setSaving(false);
         setPhase('IDLE');
         setPatientId(null);
         rec.reset();
@@ -105,8 +127,7 @@ export default function QuickRecordCard() {
 
                 <Text style={styles.timer}>{formatDuration(rec.durationMs)}</Text>
             </View>
-
-            <Text style={styles.fieldLabel}>환자 지정 (선택)</Text>
+            <Text style={styles.fieldLabel}>환자 지정</Text>
             <Pressable style={styles.select} onPress={() => setPickerOpen(true)}>
                 <Image
                     source={require('../../assets/icons/person.png')}
@@ -119,8 +140,35 @@ export default function QuickRecordCard() {
                 <Text style={styles.selectChevron}>⌄</Text>
             </Pressable>
 
-            <Pressable style={styles.completeBtn} onPress={handleComplete}>
-                <Text style={styles.completeText}>기록 완료</Text>
+            <Text style={styles.fieldLabel}>기록 유형</Text>
+            <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                style={styles.typeScroll}
+                contentContainerStyle={styles.typeRow}
+            >
+                {NOTE_TYPES.map((t) => {
+                    const active = noteType === t;
+                    return (
+                        <Pressable
+                            key={t}
+                            style={[styles.typeChip, active && styles.typeChipActive]}
+                            onPress={() => setNoteType(t)}
+                        >
+                            <Text style={[styles.typeText, active && styles.typeTextActive]}>
+                                {NOTE_TYPE_LABEL[t]}
+                            </Text>
+                        </Pressable>
+                    );
+                })}
+            </ScrollView>
+
+            <Pressable
+                style={[styles.completeBtn, saving && styles.btnDisabled]}
+                onPress={handleComplete}
+                disabled={saving}
+            >
+                <Text style={styles.completeText}>{saving ? '저장 중...' : '기록 완료'}</Text>
             </Pressable>
 
             <PatientPicker
@@ -267,4 +315,18 @@ const styles = StyleSheet.create({
     sheetRoom: { ...font.small, color: colors.textDim },
     sheetName: { ...font.body, color: colors.text, marginTop: 2 },
     check: { fontSize: 16, color: colors.primary },
+
+    typeScroll: { flexGrow: 0, marginBottom: spacing.lg },
+    typeRow: { gap: spacing.sm },
+    typeChip: {
+        borderWidth: 1,
+        borderColor: colors.border,
+        borderRadius: radius.pill,
+        paddingHorizontal: spacing.lg,
+        paddingVertical: 7,
+    },
+    typeChipActive: { borderColor: colors.primary, backgroundColor: colors.primarySoft },
+    typeText: { ...font.small, color: colors.textSub },
+    typeTextActive: { color: colors.primary, fontWeight: '600' },
+    btnDisabled: { opacity: 0.5 },
 });
