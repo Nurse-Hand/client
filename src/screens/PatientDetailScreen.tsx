@@ -12,7 +12,6 @@ import {
 import { mockDaySummary, mockAlerts } from '../mocks/patients';
 import { colors, spacing, radius, font } from '../theme';
 
-const TYPE_LABEL: Record<TimelineEventType, string> = {
 const CLINICAL_CATEGORY_LABEL: Record<TimelineClinicalCategory, string> = {
     VITAL_SIGNS: '활력징후',
     RESPIRATION: '호흡',
