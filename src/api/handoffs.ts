@@ -107,7 +107,11 @@ export function summaryOf(patient: HandoffPatient, warnings: HandoffWarning[]) {
     if (w) return w.message;
 
     const filled = SECTION_ORDER.find((k) => patient.sections[k]);
-    return filled ? patient.sections[filled]! : '작성된 내용이 없습니다';
+    if (!filled) return '작성된 내용이 없습니다';
+
+    const text = patient.sections[filled]!;
+    const firstSentence = text.split(/[.。]\s*/)[0];
+    return firstSentence.length > 30 ? `${firstSentence.slice(0, 30)}...` : firstSentence;
 }
 
 export function filledSectionsOf(patient: HandoffPatient) {

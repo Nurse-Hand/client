@@ -12,11 +12,12 @@ import { mockDaySummary, mockAlerts } from '../mocks/patients';
 import { colors, spacing, radius, font } from '../theme';
 
 const TYPE_LABEL: Record<TimelineEventType, string> = {
-    PATIENT_STATUS: '활력징후',
+    VITAL_SIGNS: '활력징후',
+    RESPIRATION: '호흡',
+    MENTAL_STATUS: '의식상태',
     PAIN: '통증',
     TREATMENT: '처치',
     DIET: '식이',
-    ACTIVITY: '활동',
     OBSERVATION: '관찰사항',
 };
 

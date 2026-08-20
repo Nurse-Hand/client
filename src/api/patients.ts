@@ -12,11 +12,12 @@ export interface ApiPatient {
 }
 
 export type TimelineEventType =
-    | 'PATIENT_STATUS'
+    | 'VITAL_SIGNS'
+    | 'RESPIRATION'
+    | 'MENTAL_STATUS'
     | 'PAIN'
     | 'TREATMENT'
     | 'DIET'
-    | 'ACTIVITY'
     | 'OBSERVATION';
 
 export interface ApiTimelineEvent {

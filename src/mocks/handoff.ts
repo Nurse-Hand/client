@@ -1,6 +1,6 @@
 import { HandoffRecord, PendingCheck } from '../types';
 
-export const hasIncomingHandoff = false;
+export const hasIncomingHandoff = true;
 
 export const pendingChecks: PendingCheck[] = [
     { kind: 'PATIENT_MATCH', label: '환자 미매칭 기록', count: 1 },
