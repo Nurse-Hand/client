@@ -6,7 +6,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
     answerPrecheckItem, formatEvidenceTime, PrecheckItem,
-} from '../api/handOffPrecheck';
+} from '../api/handOffChecks';
 import { mockPrecheckItems } from '../mocks/precheck';
 import { fetchPatients, ApiPatient } from '../api/patients';
 import { colors, spacing, radius, font } from '../theme';

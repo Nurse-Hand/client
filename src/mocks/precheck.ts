@@ -1,4 +1,4 @@
-import { PrecheckItem } from '../api/handOffPrecheck';
+import { PrecheckItem } from '../api/handOffChecks';
 
 export const mockPrecheckItems: PrecheckItem[] = [
     {

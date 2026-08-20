@@ -349,9 +349,9 @@ const styles = StyleSheet.create({
     sectionDesc: { ...font.small, color: colors.textDim, marginTop: spacing.xs },
     calBtn: {
         width: 38, height: 38, borderRadius: radius.md,
-        backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center',
+        alignItems: 'center', justifyContent: 'center',
     },
-    calIcon: { width: 20, height: 20 },
+    calIcon: { width: 24, height: 24 },
 
     weekNav: {
         flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',

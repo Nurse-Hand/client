@@ -7,11 +7,12 @@ import HomeScreen from './src/screens/HomeScreen';
 import PatientListScreen from './src/screens/PatientListScreen';
 import PatientDetailScreen from './src/screens/PatientDetailScreen';
 import HandoffScreen from './src/screens/HandoffScreen';
-import { TabKey } from './src/types';
-import { colors, font } from './src/theme';
 import RoundingScreen from './src/screens/RoundingScreen';
 import TaskScreen from './src/screens/TaskScreen';
 import HandoffPrecheckScreen from './src/screens/HandoffPrecheckScreen';
+import OnboardingScreen from './src/screens/OnboardingScreen';
+import { TabKey } from './src/types';
+import { colors, font } from './src/theme';
 
 function Placeholder({ label }: { label: string }) {
   return (
@@ -26,6 +27,7 @@ export default function App() {
   const [detailPatientId, setDetailPatientId] = useState<string | null>(null);
   const [roundingOpen, setRoundingOpen] = useState(false);
   const [precheckOpen, setPrecheckOpen] = useState(false);
+  const [onboardingDone, setOnboardingDone] = useState(false);
 
   const changeTab = (next: TabKey) => {
     setDetailPatientId(null);
@@ -42,40 +44,49 @@ export default function App() {
       <PatientListScreen onSelect={setDetailPatientId} />
     );
 
-  return (
-    <SafeAreaProvider>
-      <StatusBar style="dark" />
-      <View style={styles.root}>
-        <View style={styles.body}>
-          {roundingOpen ? (
-            <RoundingScreen onBack={() => setRoundingOpen(false)} />
-          ) : (
-            <>
-              {tab === 'home' && <HomeScreen onStartRounding={() => setRoundingOpen(true)} />}
-              {tab === 'patient' && renderPatientTab()}
-              {tab === 'handoff' && (
-                precheckOpen ? (
-                  <HandoffPrecheckScreen
-                    onBack={() => setPrecheckOpen(false)}
-                    onDone={() => setPrecheckOpen(false)}
-                  />
-                ) : (
-                  <HandoffScreen onGoPrecheck={() => setPrecheckOpen(true)} />
-                )
-              )}
-              {tab === 'task' && <TaskScreen />}
-            </>
-          )}
+  if (!onboardingDone) {
+    return (
+      <SafeAreaProvider>
+        <StatusBar style="dark" />
+        <OnboardingScreen onStart={() => setOnboardingDone(true)} />
+      </SafeAreaProvider>
+    );
+  }
+
+      return (
+      <SafeAreaProvider>
+        <StatusBar style="dark" />
+        <View style={styles.root}>
+          <View style={styles.body}>
+            {roundingOpen ? (
+              <RoundingScreen onBack={() => setRoundingOpen(false)} />
+            ) : (
+              <>
+                {tab === 'home' && <HomeScreen onStartRounding={() => setRoundingOpen(true)} />}
+                {tab === 'patient' && renderPatientTab()}
+                {tab === 'handoff' && (
+                  precheckOpen ? (
+                    <HandoffPrecheckScreen
+                      onBack={() => setPrecheckOpen(false)}
+                      onDone={() => setPrecheckOpen(false)}
+                    />
+                  ) : (
+                    <HandoffScreen onGoPrecheck={() => setPrecheckOpen(true)} />
+                  )
+                )}
+                {tab === 'task' && <TaskScreen />}
+              </>
+            )}
+          </View>
+          {!roundingOpen && <BottomTabBar current={tab} onChange={changeTab} />}
         </View>
-        {!roundingOpen && <BottomTabBar current={tab} onChange={changeTab} />}
-      </View>
-    </SafeAreaProvider>
-  );
+      </SafeAreaProvider>
+      );
 }
 
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.bg },
-  body: { flex: 1 },
-  placeholder: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.bg },
-  placeholderText: { ...font.h2, color: colors.textDim },
+      const styles = StyleSheet.create({
+        root: {flex: 1, backgroundColor: colors.bg },
+      body: {flex: 1 },
+      placeholder: {flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.bg },
+      placeholderText: {...font.h2, color: colors.textDim },
 });
