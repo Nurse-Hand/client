@@ -5,13 +5,14 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
-    createHandoff, finalizeHandoff, citationsOf, summaryOf,
+    createHandoff, fetchHandoff, finalizeHandoff, citationsOf, summaryOf,
     filledSectionsOf, citationTime,
     SECTION_LABEL, SectionKey, HandoffDraft, HandoffPatient, HandoffTask,
 } from '../api/handoffs';
 import { fetchPatients, ApiPatient } from '../api/patients';
 import { PRIORITY_COLOR } from '../api/tasks';
 import { colors, spacing, radius, font } from '../theme';
+import { ensureTodayShift, nextDuty, todayKey } from '../api/schedules';
 
 type Step = 'SECTIONS' | 'TASKS';
 
@@ -36,21 +37,46 @@ export default function HandoffDraftScreen({ onBack, onComplete }: Props) {
     } | null>(null);
 
     useEffect(() => {
+        let alive = true;
+
         (async () => {
             try {
-                const [d, p] = await Promise.all([
-                    createHandoff({ date: new Date().toISOString().slice(0, 10) }),
-                    fetchPatients(),
-                ]);
+                const p = await fetchPatients();
+                if (alive) setPatients(p.items ?? []);
+            } catch (e: any) {
+                console.log('환자 조회 실패:', e.code, e.message);
+            }
+
+            try {
+                const created = await createHandoff({
+                    date: '2026-08-20',
+                    shiftId: '71e9f618-dc9a-47ca-9a00-85f138b3f12b',
+                    targetDuty: 'EVENING',
+                });
+                console.log('초안 생성:', created.handoffId, created.status);
+
+                let d = created;
+                for (let i = 0; i < 15; i++) {
+                    if (!alive) return;
+                    if (d.status !== 'GENERATING' && d.patients?.length) break;
+                    await new Promise((r) => setTimeout(r, 2000));
+                    d = await fetchHandoff(created.handoffId);
+                    console.log('초안 상태:', d.status, '환자', d.patients?.length ?? 0);
+                }
+
+                if (!alive) return;
                 setDraft(d);
-                setTaskOrder(d.tasks);
-                setPatients(p.items ?? []);
+                setTaskOrder(d.tasks ?? []);
             } catch (e: any) {
                 console.log('초안 생성 실패:', e.code, e.message);
             } finally {
-                setLoading(false);
+                if (alive) setLoading(false);
             }
         })();
+
+        return () => {
+            alive = false;
+        };
     }, []);
 
     const patientMap = useMemo(() => {
@@ -120,7 +146,7 @@ export default function HandoffDraftScreen({ onBack, onComplete }: Props) {
                         <Text style={styles.pageTitle}>환자별 인수인계</Text>
                         <Text style={styles.pageDesc}>오늘의 기록을 바탕으로 인수인계 초안을 생성했어요.</Text>
 
-                        {draft.patients.map((p) => (
+                        {(draft.patients ?? []).map((p) => (
                             <PatientCard
                                 key={p.patientId}
                                 patient={p}

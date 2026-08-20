@@ -8,7 +8,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import { useRecorder, formatDuration } from '../hooks/useRecorder';
-import { startSession, saveRecord, completeSession } from '../api/rounding';
+import { startSession, addSegment, saveRecord, completeSession } from '../api/rounding';
 import { uploadAudio, uploadPhoto } from '../api/files';
 import { fetchPatients, ApiPatient } from '../api/patients';
 import { LocalSegment, ChatItem } from '../types';
@@ -20,6 +20,13 @@ type Phase = 'IDLE' | 'RECORDING' | 'PAUSED' | 'FINISHING';
 const SCREEN_H = Dimensions.get('window').height;
 const SHEET_COLLAPSED = 96;
 const SHEET_EXPANDED = SCREEN_H * 0.66;
+
+const DEMO_NOTES = [
+  '어제보다 숨쉬기 편해졌고 산소포화도는 97%로 확인되었습니다.',
+  '통증은 NRS 3점으로 감소했고 진통제 투여 후 안정적입니다.',
+  '식사량은 절반 정도이며 연하곤란 증상은 없습니다.',
+  '보행 훈련을 시행했고 어지럼증 없이 50m 이동 가능했습니다.',
+];
 
 interface Props {
   onBack: () => void;
@@ -132,18 +139,26 @@ export default function RoundingScreen({ onBack, onAnalysisStart }: Props) {
     const endedAt = nowIso();
     const startedAt = segmentStartRef.current;
     const sequence = segments.length + 1;
+    const note = DEMO_NOTES[segments.length % DEMO_NOTES.length];
 
     let synced = false;
     let recordId: string | undefined;
 
     if (sessionId && patientId) {
       try {
-        const rec = await saveRecord(sessionId, { patientId, startedAt, endedAt });
-        recordId = rec.recordId;
+        await addSegment(sessionId, { patientId, startedAt, endedAt, note });
+        console.log('세그먼트 저장:', sequence, note.slice(0, 18));
         synced = true;
-        console.log('구간 저장:', rec.recordId, rec.sequence);
       } catch (e: any) {
-        console.log('구간 저장 실패:', e.code, e.message);
+        console.log('세그먼트 저장 실패:', e.code, e.message);
+      }
+
+      try {
+        const rec = await saveRecord(sessionId, { patientId, startedAt, endedAt, note });
+        recordId = rec.recordId;
+        console.log('기록 저장:', rec.recordId);
+      } catch (e: any) {
+        console.log('기록 저장 실패:', e.code, e.message);
       }
     }
 
@@ -178,16 +193,25 @@ export default function RoundingScreen({ onBack, onAnalysisStart }: Props) {
     }
 
     if (sessionId && lastPatientId) {
+      const note = DEMO_NOTES[segments.length % DEMO_NOTES.length];
+
+      try {
+        await addSegment(sessionId, { patientId: lastPatientId, startedAt, endedAt, note });
+        console.log('마지막 세그먼트 저장:', note.slice(0, 18));
+      } catch (e: any) {
+        console.log('마지막 세그먼트 저장 실패:', e.code, e.message);
+      }
+
       try {
         const record = await saveRecord(sessionId, {
           patientId: lastPatientId,
           startedAt,
           endedAt,
-          audioFileId,
+          note,
         });
-        console.log('마지막 구간 저장:', record.recordId);
+        console.log('마지막 기록 저장:', record.recordId);
       } catch (e: any) {
-        console.log('마지막 구간 저장 실패:', e.code, e.message);
+        console.log('마지막 기록 저장 실패:', e.code, e.message);
       }
     }
 
