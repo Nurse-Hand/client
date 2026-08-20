@@ -16,7 +16,10 @@ import { getMonthlySchedule, putMonthlySchedule } from '../api/schedules';
 import {
     buildCalendarCandidates,
     mergeScheduleEntries,
+    monthDateKeys,
+    resolveCalendarCandidates,
     scheduleSaveSignature,
+    selectScheduleSaveAttempt,
 } from '../features/schedules/calendar-import';
 import {
     readCalendarEvents,
@@ -25,10 +28,10 @@ import {
 } from '../features/schedules/calendar-device';
 import { colors, font, radius, spacing } from '../theme';
 import type {
+    CalendarCandidateDecision,
     CalendarImportCandidate,
     MonthlySchedule,
     ScheduleDuty,
-    ScheduleEntry,
 } from '../types/schedules';
 
 const DUTIES: ScheduleDuty[] = ['DAY', 'EVENING', 'NIGHT', 'OFF'];
@@ -67,7 +70,11 @@ export default function ScheduleImportScreen({ onClose }: { onClose: () => void 
     const [calendars, setCalendars] = useState<EventCalendarOption[]>([]);
     const [selectedCalendarId, setSelectedCalendarId] = useState<string | null>(null);
     const [candidates, setCandidates] = useState<CalendarImportCandidate[]>([]);
-    const [selectedDuties, setSelectedDuties] = useState<Record<string, ScheduleDuty | undefined>>({});
+    const [candidateDecisions, setCandidateDecisions] = useState<
+        Record<string, CalendarCandidateDecision | undefined>
+    >({});
+    const [manualEntries, setManualEntries] = useState<Record<string, ScheduleDuty>>({});
+    const [selectedManualDate, setSelectedManualDate] = useState(`${currentYearMonth()}-01`);
     const [permissionDenied, setPermissionDenied] = useState(false);
     const [canAskPermissionAgain, setCanAskPermissionAgain] = useState(true);
     const [loadingSchedule, setLoadingSchedule] = useState(false);
@@ -96,7 +103,9 @@ export default function ScheduleImportScreen({ onClose }: { onClose: () => void 
 
     useEffect(() => {
         setCandidates([]);
-        setSelectedDuties({});
+        setCandidateDecisions({});
+        setManualEntries({});
+        setSelectedManualDate(`${yearMonth}-01`);
         saveAttemptRef.current = null;
         void loadSchedule(yearMonth);
     }, [yearMonth]);
@@ -127,7 +136,7 @@ export default function ScheduleImportScreen({ onClose }: { onClose: () => void 
             const events = await readCalendarEvents(selectedCalendarId, yearMonth);
             const nextCandidates = buildCalendarCandidates(events, yearMonth);
             setCandidates(nextCandidates);
-            setSelectedDuties(
+            setCandidateDecisions(
                 Object.fromEntries(
                     nextCandidates.map((candidate) => [
                         candidate.date,
@@ -148,19 +157,14 @@ export default function ScheduleImportScreen({ onClose }: { onClose: () => void 
         }
     };
 
-    const changeDuty = (date: string, duty: ScheduleDuty) => {
-        setSelectedDuties((current) => ({ ...current, [date]: duty }));
+    const changeCandidateDecision = (date: string, decision: CalendarCandidateDecision) => {
+        setCandidateDecisions((current) => ({ ...current, [date]: decision }));
         saveAttemptRef.current = null;
     };
 
-    const resolvedImportedEntries = (): ScheduleEntry[] | null => {
-        const entries: ScheduleEntry[] = [];
-        for (const candidate of candidates) {
-            const duty = selectedDuties[candidate.date];
-            if (!duty) return null;
-            entries.push({ date: candidate.date, duty });
-        }
-        return entries;
+    const changeManualDuty = (duty: ScheduleDuty) => {
+        setManualEntries((current) => ({ ...current, [selectedManualDate]: duty }));
+        saveAttemptRef.current = null;
     };
 
     const refreshAfterConflict = async () => {
@@ -179,18 +183,21 @@ export default function ScheduleImportScreen({ onClose }: { onClose: () => void 
             return;
         }
 
-        const imported = resolvedImportedEntries();
+        const imported = resolveCalendarCandidates(candidates, candidateDecisions);
         if (!imported) {
-            Alert.alert('확인 필요', 'UNKNOWN 또는 CONFLICT 항목의 근무를 모두 선택해 주세요.');
+            Alert.alert('확인 필요', 'UNKNOWN 또는 CONFLICT 항목의 근무를 선택하거나 제외해 주세요.');
             return;
         }
-        if (imported.length === 0) return;
+        const manual = Object.entries(manualEntries).map(([date, duty]) => ({ date, duty }));
+        if (imported.length === 0 && manual.length === 0) return;
 
-        const entries = mergeScheduleEntries(schedule.entries, imported);
+        const entries = mergeScheduleEntries(schedule.entries, [...imported, ...manual]);
         const signature = scheduleSaveSignature(yearMonth, schedule.version, entries);
-        if (saveAttemptRef.current?.signature !== signature) {
-            saveAttemptRef.current = { signature, key: newIdempotencyKey() };
-        }
+        saveAttemptRef.current = selectScheduleSaveAttempt(
+            saveAttemptRef.current,
+            signature,
+            newIdempotencyKey,
+        );
 
         setSaving(true);
         try {
@@ -202,7 +209,8 @@ export default function ScheduleImportScreen({ onClose }: { onClose: () => void 
             );
             setSchedule(saved);
             setCandidates([]);
-            setSelectedDuties({});
+            setCandidateDecisions({});
+            setManualEntries({});
             saveAttemptRef.current = null;
             Alert.alert('저장 완료', `${monthLabel(yearMonth)} 근무표를 저장했어요.`);
         } catch (error) {
@@ -223,11 +231,18 @@ export default function ScheduleImportScreen({ onClose }: { onClose: () => void 
         }
     };
 
-    const unresolvedCount = candidates.filter((candidate) => !selectedDuties[candidate.date]).length;
+    const unresolvedCount = candidates.filter((candidate) => !candidateDecisions[candidate.date]).length;
+    const includedCandidateCount = candidates.filter(
+        (candidate) => candidateDecisions[candidate.date] !== 'EXCLUDED',
+    ).length;
     const busy = loadingSchedule || loadingCalendars || loadingEvents || saving;
     const existingDutyByDate = new Map(
         schedule?.entries.map((entry) => [entry.date, entry.duty]) ?? [],
     );
+    const monthDates = monthDateKeys(yearMonth);
+    const selectedManualDuty = manualEntries[selectedManualDate]
+        ?? existingDutyByDate.get(selectedManualDate);
+    const hasChanges = Object.keys(manualEntries).length > 0 || includedCandidateCount > 0;
 
     return (
         <View style={[styles.root, { paddingTop: insets.top }]}>
@@ -235,7 +250,7 @@ export default function ScheduleImportScreen({ onClose }: { onClose: () => void 
                 <Pressable hitSlop={8} onPress={onClose} accessibilityRole="button">
                     <Ionicons name="close" size={26} color={colors.text} />
                 </Pressable>
-                <Text style={styles.headerTitle}>캘린더에서 근무표 가져오기</Text>
+                <Text style={styles.headerTitle}>근무표 입력</Text>
                 <View style={styles.headerSpacer} />
             </View>
 
@@ -259,7 +274,52 @@ export default function ScheduleImportScreen({ onClose }: { onClose: () => void 
                 </View>
 
                 <View style={styles.card}>
-                    <Text style={styles.sectionTitle}>1. 일정 캘린더 선택</Text>
+                    <Text style={styles.sectionTitle}>1. 직접 입력</Text>
+                    <Text style={styles.helpText}>
+                        캘린더 권한 없이도 날짜를 누르고 D/E/N/OFF를 선택해 추가하거나 수정할 수 있어요.
+                    </Text>
+                    <View style={styles.dayGrid}>
+                        {monthDates.map((date) => {
+                            const duty = manualEntries[date] ?? existingDutyByDate.get(date);
+                            return (
+                                <Pressable
+                                    key={date}
+                                    style={[
+                                        styles.dayButton,
+                                        selectedManualDate === date && styles.dayButtonSelected,
+                                    ]}
+                                    onPress={() => setSelectedManualDate(date)}
+                                >
+                                    <Text style={styles.dayNumber}>{Number(date.slice(-2))}</Text>
+                                    <Text style={styles.dayDuty}>{duty ? DUTY_LABEL[duty] : '-'}</Text>
+                                </Pressable>
+                            );
+                        })}
+                    </View>
+                    <Text style={styles.selectedDateText}>{selectedManualDate}</Text>
+                    <View style={styles.dutyRow}>
+                        {DUTIES.map((duty) => (
+                            <Pressable
+                                key={duty}
+                                style={[
+                                    styles.dutyButton,
+                                    selectedManualDuty === duty && styles.dutyButtonSelected,
+                                ]}
+                                onPress={() => changeManualDuty(duty)}
+                            >
+                                <Text style={[
+                                    styles.dutyText,
+                                    selectedManualDuty === duty && styles.dutyTextSelected,
+                                ]}>
+                                    {DUTY_LABEL[duty]}
+                                </Text>
+                            </Pressable>
+                        ))}
+                    </View>
+                </View>
+
+                <View style={styles.card}>
+                    <Text style={styles.sectionTitle}>2. 일정 캘린더 선택</Text>
                     <Text style={styles.helpText}>
                         권한은 이 버튼을 누를 때만 요청해요. 일정 제목·메모·위치·참석자 정보는 서버에 보내지 않아요.
                     </Text>
@@ -314,9 +374,9 @@ export default function ScheduleImportScreen({ onClose }: { onClose: () => void 
 
                 {candidates.length > 0 && (
                     <View style={styles.card}>
-                        <Text style={styles.sectionTitle}>2. 변환 결과 확인</Text>
+                        <Text style={styles.sectionTitle}>3. 변환 결과 확인</Text>
                         <Text style={styles.helpText}>
-                            정확히 일치한 D/E/N/OFF만 자동 선택했어요. UNKNOWN·CONFLICT는 직접 선택해야 저장돼요.
+                            UNKNOWN·CONFLICT는 근무를 직접 선택하거나 로컬에서 제외해야 저장할 수 있어요.
                         </Text>
                         {candidates.map((candidate) => (
                             <View key={candidate.date} style={styles.candidateRow}>
@@ -342,18 +402,36 @@ export default function ScheduleImportScreen({ onClose }: { onClose: () => void 
                                             key={duty}
                                             style={[
                                                 styles.dutyButton,
-                                                selectedDuties[candidate.date] === duty && styles.dutyButtonSelected,
+                                                candidateDecisions[candidate.date] === duty && styles.dutyButtonSelected,
                                             ]}
-                                            onPress={() => changeDuty(candidate.date, duty)}
+                                            onPress={() => changeCandidateDecision(candidate.date, duty)}
                                         >
                                             <Text style={[
                                                 styles.dutyText,
-                                                selectedDuties[candidate.date] === duty && styles.dutyTextSelected,
+                                                candidateDecisions[candidate.date] === duty && styles.dutyTextSelected,
                                             ]}>
                                                 {DUTY_LABEL[duty]}
                                             </Text>
                                         </Pressable>
                                     ))}
+                                    {candidate.status !== 'MATCHED' && (
+                                        <Pressable
+                                            style={[
+                                                styles.excludeButton,
+                                                candidateDecisions[candidate.date] === 'EXCLUDED'
+                                                    && styles.excludeButtonSelected,
+                                            ]}
+                                            onPress={() => changeCandidateDecision(candidate.date, 'EXCLUDED')}
+                                        >
+                                            <Text style={[
+                                                styles.excludeText,
+                                                candidateDecisions[candidate.date] === 'EXCLUDED'
+                                                    && styles.excludeTextSelected,
+                                            ]}>
+                                                제외
+                                            </Text>
+                                        </Pressable>
+                                    )}
                                 </View>
                             </View>
                         ))}
@@ -361,17 +439,17 @@ export default function ScheduleImportScreen({ onClose }: { onClose: () => void 
                 )}
 
                 <View style={styles.card}>
-                    <Text style={styles.sectionTitle}>3. 서버 근무표에 저장</Text>
+                    <Text style={styles.sectionTitle}>4. 서버 근무표에 저장</Text>
                     <Text style={styles.helpText}>
                         기존 {schedule?.entries.length ?? 0}일은 유지하고, 확인한 날짜만 반영해요. 자동 동기화하지 않아요.
                     </Text>
                     <Pressable
                         style={[
                             styles.primaryButton,
-                            (busy || !schedule || candidates.length === 0 || unresolvedCount > 0) && styles.disabled,
+                            (busy || !schedule || !hasChanges || unresolvedCount > 0) && styles.disabled,
                         ]}
                         onPress={handleSave}
-                        disabled={busy || !schedule || candidates.length === 0 || unresolvedCount > 0}
+                        disabled={busy || !schedule || !hasChanges || unresolvedCount > 0}
                     >
                         {saving ? <ActivityIndicator color="#fff" /> : (
                             <Text style={styles.primaryButtonText}>
@@ -405,6 +483,20 @@ const styles = StyleSheet.create({
     card: { backgroundColor: colors.card, borderRadius: radius.lg, padding: spacing.lg, gap: spacing.md },
     sectionTitle: { ...font.h2, color: colors.text },
     helpText: { ...font.small, color: colors.textSub, lineHeight: 19 },
+    dayGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
+    dayButton: {
+        width: '12%',
+        minHeight: 48,
+        borderWidth: 1,
+        borderColor: colors.border,
+        borderRadius: radius.sm,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    dayButtonSelected: { borderColor: colors.primary, backgroundColor: colors.primarySoft },
+    dayNumber: { ...font.small, color: colors.text },
+    dayDuty: { ...font.tiny, color: colors.primary, marginTop: 2 },
+    selectedDateText: { ...font.body, color: colors.text },
     primaryButton: {
         minHeight: 48,
         borderRadius: radius.pill,
@@ -458,4 +550,17 @@ const styles = StyleSheet.create({
     dutyButtonSelected: { borderColor: colors.primary, backgroundColor: colors.primary },
     dutyText: { ...font.small, color: colors.textSub },
     dutyTextSelected: { color: '#fff', fontWeight: '700' },
+    excludeButton: {
+        minWidth: 54,
+        minHeight: 38,
+        borderWidth: 1,
+        borderColor: colors.border,
+        borderRadius: radius.md,
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingHorizontal: spacing.sm,
+    },
+    excludeButtonSelected: { borderColor: colors.textSub, backgroundColor: colors.textSub },
+    excludeText: { ...font.small, color: colors.textSub },
+    excludeTextSelected: { color: '#fff', fontWeight: '700' },
 });

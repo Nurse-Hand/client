@@ -5,8 +5,11 @@ const {
     calendarFetchRange,
     dutyFromCalendarTitle,
     mergeScheduleEntries,
+    monthDateKeys,
     normalizeCalendarTitle,
+    resolveCalendarCandidates,
     scheduleSaveSignature,
+    selectScheduleSaveAttempt,
     seoulDateKey,
 } = require('./calendar-import.ts');
 
@@ -85,6 +88,41 @@ test('가져온 날짜만 덮어쓰고 기존의 나머지 근무는 유지한�
     );
 });
 
+test('UNKNOWN과 CONFLICT 제외는 기존 서버 근무를 유지하고 신규 날짜를 만들지 않는다', () => {
+    const candidates = [
+        { date: '2026-08-02', status: 'UNKNOWN', suggestedDuty: null },
+        { date: '2026-08-03', status: 'CONFLICT', suggestedDuty: null },
+    ];
+    const resolved = resolveCalendarCandidates(candidates, {
+        '2026-08-02': 'EXCLUDED',
+        '2026-08-03': 'EXCLUDED',
+    });
+
+    assert.deepEqual(resolved, []);
+    assert.deepEqual(
+        mergeScheduleEntries([{ date: '2026-08-02', duty: 'NIGHT' }], resolved),
+        [{ date: '2026-08-02', duty: 'NIGHT' }],
+    );
+});
+
+test('수동 입력용 월 날짜는 실제 말일까지만 만들고 기존 날짜 수정과 신규 추가를 병합한다', () => {
+    assert.equal(monthDateKeys('2026-02').length, 28);
+    assert.equal(monthDateKeys('2028-02').at(-1), '2028-02-29');
+    assert.deepEqual(
+        mergeScheduleEntries(
+            [{ date: '2026-08-01', duty: 'DAY' }],
+            [
+                { date: '2026-08-01', duty: 'OFF' },
+                { date: '2026-08-02', duty: 'NIGHT' },
+            ],
+        ),
+        [
+            { date: '2026-08-01', duty: 'OFF' },
+            { date: '2026-08-02', duty: 'NIGHT' },
+        ],
+    );
+});
+
 test('같은 body는 같은 저장 서명을 만들고 version 또는 값 변경은 다른 서명을 만든다', () => {
     const entries = [{ date: '2026-08-01', duty: 'DAY' }];
     const first = scheduleSaveSignature('2026-08', 1, entries);
@@ -94,4 +132,16 @@ test('같은 body는 같은 저장 서명을 만들고 version 또는 값 변경
         first,
         scheduleSaveSignature('2026-08', 1, [{ date: '2026-08-01', duty: 'OFF' }]),
     );
+});
+
+test('같은 body 서명은 같은 멱등성 key를 재사용하고 변경된 body는 새 key를 만든다', () => {
+    let sequence = 0;
+    const createKey = () => `key-${++sequence}`;
+    const first = selectScheduleSaveAttempt(null, 'same-body', createKey);
+    const retry = selectScheduleSaveAttempt(first, 'same-body', createKey);
+    const changed = selectScheduleSaveAttempt(retry, 'changed-body', createKey);
+
+    assert.equal(retry, first);
+    assert.equal(retry.key, 'key-1');
+    assert.equal(changed.key, 'key-2');
 });

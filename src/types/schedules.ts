@@ -13,6 +13,7 @@ export interface MonthlySchedule {
 }
 
 export type CalendarImportStatus = 'MATCHED' | 'UNKNOWN' | 'CONFLICT';
+export type CalendarCandidateDecision = ScheduleDuty | 'EXCLUDED';
 
 export interface CalendarImportCandidate {
     date: string;

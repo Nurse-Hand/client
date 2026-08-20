@@ -1,4 +1,5 @@
 import type {
+    CalendarCandidateDecision,
     CalendarImportCandidate,
     ScheduleDuty,
     ScheduleEntry,
@@ -108,6 +109,46 @@ export function mergeScheduleEntries(
     return [...merged.entries()]
         .sort(([left], [right]) => left.localeCompare(right))
         .map(([date, duty]) => ({ date, duty }));
+}
+
+export function resolveCalendarCandidates(
+    candidates: CalendarImportCandidate[],
+    decisions: Record<string, CalendarCandidateDecision | undefined>,
+): ScheduleEntry[] | null {
+    const entries: ScheduleEntry[] = [];
+    for (const candidate of candidates) {
+        const decision = decisions[candidate.date];
+        if (!decision) return null;
+        if (decision !== 'EXCLUDED') entries.push({ date: candidate.date, duty: decision });
+    }
+    return entries;
+}
+
+export function monthDateKeys(yearMonth: string): string[] {
+    const match = /^(\d{4})-(0[1-9]|1[0-2])$/.exec(yearMonth);
+    if (!match) throw new Error('올바른 YYYY-MM 형식이 필요합니다.');
+
+    const year = Number(match[1]);
+    const month = Number(match[2]);
+    const dayCount = new Date(Date.UTC(year, month, 0)).getUTCDate();
+    return Array.from(
+        { length: dayCount },
+        (_, index) => `${yearMonth}-${String(index + 1).padStart(2, '0')}`,
+    );
+}
+
+export interface ScheduleSaveAttempt {
+    signature: string;
+    key: string;
+}
+
+export function selectScheduleSaveAttempt(
+    current: ScheduleSaveAttempt | null,
+    signature: string,
+    createKey: () => string,
+): ScheduleSaveAttempt {
+    if (current?.signature === signature) return current;
+    return { signature, key: createKey() };
 }
 
 export function scheduleSaveSignature(
