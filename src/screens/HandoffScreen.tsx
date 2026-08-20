@@ -76,14 +76,17 @@ export default function HandoffScreen({
                 </View>
             </ScrollView>
 
-            onDismiss={() => {
-                setCheckModalOpen(false);
-                onGoDraft();
-            }}
-            onConfirm={() => {
-                setCheckModalOpen(false);
-                onGoPrecheck();
-            }}
+            <PendingCheckModal
+                visible={checkModalOpen}
+                onDismiss={() => {
+                    setCheckModalOpen(false);
+                    onGoDraft();
+                }}
+                onConfirm={() => {
+                    setCheckModalOpen(false);
+                    onGoPrecheck();
+                }}
+            />
         </View>
     );
 }

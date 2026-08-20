@@ -13,6 +13,7 @@ import { uploadAudio, uploadPhoto } from '../api/files';
 import { fetchPatients, ApiPatient } from '../api/patients';
 import { LocalSegment, ChatItem } from '../types';
 import { colors, spacing, radius, font } from '../theme';
+import { startAnalysis } from '../api/roundingAnalysis';
 
 type Phase = 'IDLE' | 'RECORDING' | 'PAUSED' | 'FINISHING';
 
@@ -22,9 +23,10 @@ const SHEET_EXPANDED = SCREEN_H * 0.66;
 
 interface Props {
   onBack: () => void;
+  onAnalysisStart: (sessionId: string, jobId: string) => void;
 }
 
-export default function RoundingScreen({ onBack }: Props) {
+export default function RoundingScreen({ onBack, onAnalysisStart }: Props) {
   const insets = useSafeAreaInsets();
   const rec = useRecorder();
 
@@ -153,9 +155,12 @@ export default function RoundingScreen({ onBack }: Props) {
     const uri = await rec.stop();
     console.log('세션 파일 uri:', uri);
 
+    let audioFileId: string | null = null;
+
     try {
       if (uri) {
         const file = await uploadAudio(uri);
+        audioFileId = file.id;
         console.log('세션 오디오 업로드 성공:', file.id);
       }
       if (sessionId) {
@@ -164,6 +169,17 @@ export default function RoundingScreen({ onBack }: Props) {
       }
     } catch (e: any) {
       console.log('라운딩 종료 실패:', e.code, e.message);
+    }
+
+    if (sessionId && audioFileId) {
+      try {
+        const job = await startAnalysis(sessionId, audioFileId);
+        console.log('분석 시작:', job.jobId);
+        onAnalysisStart(sessionId, job.jobId);
+        return;
+      } catch (e: any) {
+        console.log('분석 시작 실패:', e.code, e.message);
+      }
     }
 
     onBack();

@@ -13,6 +13,7 @@ import HandoffPrecheckScreen from './src/screens/HandoffPrecheckScreen';
 import OnboardingScreen from './src/screens/OnboardingScreen';
 import RecordTranscriptScreen from './src/screens/RecordTranscriptScreen';
 import HandoffDraftScreen from './src/screens/HandoffDraftScreen';
+import AnalysisResultScreen from './src/screens/AnalysisResultScreen';
 import { TabKey } from './src/types';
 import { colors, font } from './src/theme';
 
@@ -32,6 +33,7 @@ export default function App() {
   const [onboardingDone, setOnboardingDone] = useState(false);
   const [transcriptOpen, setTranscriptOpen] = useState(false);
   const [draftOpen, setDraftOpen] = useState(false);
+  const [analysis, setAnalysis] = useState<{ sessionId: string; jobId: string } | null>(null);
 
   const changeTab = (next: TabKey) => {
     setDetailPatientId(null);
@@ -62,8 +64,20 @@ export default function App() {
       <StatusBar style="dark" />
       <View style={styles.root}>
         <View style={styles.body}>
-          {roundingOpen ? (
-            <RoundingScreen onBack={() => setRoundingOpen(false)} />
+          {analysis ? (
+            <AnalysisResultScreen
+              sessionId={analysis.sessionId}
+              jobId={analysis.jobId}
+              onDone={() => {
+                setAnalysis(null);
+                setRoundingOpen(false);
+              }}
+            />
+          ) : roundingOpen ? (
+            <RoundingScreen
+              onBack={() => setRoundingOpen(false)}
+              onAnalysisStart={(sessionId, jobId) => setAnalysis({ sessionId, jobId })}
+            />
           ) : (
             <>
               {tab === 'home' && (
@@ -102,7 +116,7 @@ export default function App() {
             </>
           )}
         </View>
-        {!roundingOpen && <BottomTabBar current={tab} onChange={changeTab} />}
+        {!roundingOpen && !analysis && <BottomTabBar current={tab} onChange={changeTab} />}
       </View>
     </SafeAreaProvider>
   );
