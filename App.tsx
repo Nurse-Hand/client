@@ -7,9 +7,16 @@ import HomeScreen from './src/screens/HomeScreen';
 import PatientListScreen from './src/screens/PatientListScreen';
 import PatientDetailScreen from './src/screens/PatientDetailScreen';
 import HandoffScreen from './src/screens/HandoffScreen';
+import RoundingScreen from './src/screens/RoundingScreen';
+import TaskScreen from './src/screens/TaskScreen';
+import HandoffPrecheckScreen from './src/screens/HandoffPrecheckScreen';
+import OnboardingScreen from './src/screens/OnboardingScreen';
+import RecordTranscriptScreen from './src/screens/RecordTranscriptScreen';
+import HandoffDraftScreen from './src/screens/HandoffDraftScreen';
+import AnalysisResultScreen from './src/screens/AnalysisResultScreen';
+import TaskExtractionScreen from './src/screens/TaskExtractionScreen';
 import { TabKey } from './src/types';
 import { colors, font } from './src/theme';
-import RoundingScreen from './src/screens/RoundingScreen';
 
 function Placeholder({ label }: { label: string }) {
   return (
@@ -23,6 +30,12 @@ export default function App() {
   const [tab, setTab] = useState<TabKey>('home');
   const [detailPatientId, setDetailPatientId] = useState<string | null>(null);
   const [roundingOpen, setRoundingOpen] = useState(false);
+  const [precheckOpen, setPrecheckOpen] = useState(false);
+  const [onboardingDone, setOnboardingDone] = useState(false);
+  const [transcriptOpen, setTranscriptOpen] = useState(false);
+  const [draftOpen, setDraftOpen] = useState(false);
+  const [analysis, setAnalysis] = useState<{ sessionId: string; jobId: string } | null>(null);
+  const [extractionOpen, setExtractionOpen] = useState(false);
 
   const changeTab = (next: TabKey) => {
     setDetailPatientId(null);
@@ -39,23 +52,82 @@ export default function App() {
       <PatientListScreen onSelect={setDetailPatientId} />
     );
 
+  if (!onboardingDone) {
+    return (
+      <SafeAreaProvider>
+        <StatusBar style="dark" />
+        <OnboardingScreen onStart={() => setOnboardingDone(true)} />
+      </SafeAreaProvider>
+    );
+  }
+
   return (
     <SafeAreaProvider>
       <StatusBar style="dark" />
       <View style={styles.root}>
         <View style={styles.body}>
-          {roundingOpen ? (
-            <RoundingScreen onBack={() => setRoundingOpen(false)} />
+          {analysis ? (
+            <AnalysisResultScreen
+              sessionId={analysis.sessionId}
+              jobId={analysis.jobId}
+              onDone={() => {
+                setAnalysis(null);
+                setRoundingOpen(false);
+              }}
+            />
+          ) : roundingOpen ? (
+            <RoundingScreen
+              onBack={() => setRoundingOpen(false)}
+              onAnalysisStart={(sessionId, jobId) => setAnalysis({ sessionId, jobId })}
+            />
           ) : (
             <>
-              {tab === 'home' && <HomeScreen onStartRounding={() => setRoundingOpen(true)} />}
+              {tab === 'home' && (
+                transcriptOpen ? (
+                  <RecordTranscriptScreen onBack={() => setTranscriptOpen(false)} />
+                ) : (
+                  <HomeScreen
+                    onStartRounding={() => setRoundingOpen(true)}
+                    onOpenTranscript={() => setTranscriptOpen(true)}
+                  />
+                )
+              )}
               {tab === 'patient' && renderPatientTab()}
-              {tab === 'handoff' && <HandoffScreen />}
-              {tab === 'task' && <Placeholder label="업무" />}
+              {tab === 'handoff' && (
+                draftOpen ? (
+                  <HandoffDraftScreen
+                    onBack={() => setDraftOpen(false)}
+                    onComplete={() => setDraftOpen(false)}
+                  />
+                ) : precheckOpen ? (
+                  <HandoffPrecheckScreen
+                    onBack={() => setPrecheckOpen(false)}
+                    onDone={() => {
+                      setPrecheckOpen(false);
+                      setDraftOpen(true);
+                    }}
+                  />
+                ) : (
+                  <HandoffScreen
+                    onGoPrecheck={() => setPrecheckOpen(true)}
+                    onGoDraft={() => setDraftOpen(true)}
+                  />
+                )
+              )}
+              {tab === 'task' && (
+                extractionOpen ? (
+                  <TaskExtractionScreen
+                    onBack={() => setExtractionOpen(false)}
+                    onApplied={() => setExtractionOpen(false)}
+                  />
+                ) : (
+                  <TaskScreen onGoExtraction={() => setExtractionOpen(true)} />
+                )
+              )}
             </>
           )}
         </View>
-        {!roundingOpen && <BottomTabBar current={tab} onChange={changeTab} />}
+        {!roundingOpen && !analysis && <BottomTabBar current={tab} onChange={changeTab} />}
       </View>
     </SafeAreaProvider>
   );

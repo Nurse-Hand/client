@@ -1,13 +1,30 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { View, Text, Image, Pressable, ScrollView, Modal, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { handoffRecords, pendingChecks, hasIncomingHandoff } from '../mocks/handoff';
-import { HandoffRecord, SHIFT_EMOJI } from '../types';
+import { HandoffRecord, SHIFT_ICON } from '../types';
 import { colors, spacing, radius, font, layout } from '../theme';
+import { fetchHandoffs, dateOf, HandoffListItem } from '../api/handoffs';
 
-export default function HandoffScreen() {
+export default function HandoffScreen({
+    onGoPrecheck,
+    onGoDraft,
+}: {
+    onGoPrecheck: () => void;
+    onGoDraft: () => void;
+}) {
     const insets = useSafeAreaInsets();
     const [checkModalOpen, setCheckModalOpen] = useState(false);
+
+    const [items, setItems] = useState<HandoffListItem[]>([]);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        fetchHandoffs()
+            .then((r) => setItems(r.items ?? []))
+            .catch((e) => console.log('인수인계 목록 실패:', e.code, e.message))
+            .finally(() => setLoading(false));
+    }, []);
 
     const handleCreate = () => {
         if (pendingChecks.length > 0) {
@@ -60,52 +77,54 @@ export default function HandoffScreen() {
                         </Pressable>
                     </View>
 
-                    {handoffRecords.map((record, i) => (
-                        <HandoffRow
-                            key={record.id}
-                            record={record}
-                            isLast={i === handoffRecords.length - 1}
-                        />
-                    ))}
+                    {loading ? (
+                        <Text style={styles.emptyText}>불러오는 중...</Text>
+                    ) : items.length === 0 ? (
+                        <Text style={styles.emptyText}>작성한 인수인계가 없어요</Text>
+                    ) : (
+                        items.map((item, i) => (
+                            <HandoffRow
+                                key={item.handoffId}
+                                item={item}
+                                isLast={i === items.length - 1}
+                            />
+                        ))
+                    )}
                 </View>
             </ScrollView>
 
             <PendingCheckModal
                 visible={checkModalOpen}
-                onDismiss={() => setCheckModalOpen(false)}
-                onConfirm={() => setCheckModalOpen(false)}
+                onDismiss={() => {
+                    setCheckModalOpen(false);
+                    onGoDraft();
+                }}
+                onConfirm={() => {
+                    setCheckModalOpen(false);
+                    onGoPrecheck();
+                }}
             />
         </View>
     );
 }
 
-function HandoffRow({ record, isLast }: { record: HandoffRecord; isLast: boolean }) {
+function HandoffRow({ item, isLast }: { item: HandoffListItem; isLast: boolean }) {
+    const { date, weekday } = dateOf(item.updatedAt);
+    const isDraft = item.status === 'DRAFT';
+
     return (
         <>
-            {record.isToday && (
-                <View style={styles.todayBadge}>
-                    <Text style={styles.todayText}>Today</Text>
-                </View>
-            )}
-
             <Pressable style={styles.row}>
                 <View style={styles.rowText}>
-                    <View style={styles.dateRow}>
-                        <Text style={styles.rowDate}>{record.date} {record.weekday}</Text>
-                        <View style={styles.shiftBadge}>
-                            <Text style={styles.shiftBadgeText}>
-                                {SHIFT_EMOJI[record.shift]}
-                            </Text>
-                        </View>
-                    </View>
+                    <Text style={styles.rowDate}>{date} {weekday}</Text>
                     <Text style={styles.rowReceiver}>
-                        수신자 {record.receiverName ?? '선택 안 됨'}
+                        환자 {item.patientCount}명 · 업무 {item.taskCount}건
                     </Text>
                 </View>
 
-                {record.sendStatus === 'NOT_SENT' ? (
+                {isDraft ? (
                     <View style={styles.statusChip}>
-                        <Text style={styles.statusText}>송신 전</Text>
+                        <Text style={styles.statusText}>작성 중</Text>
                     </View>
                 ) : (
                     <Text style={styles.chevron}>›</Text>
@@ -234,13 +253,7 @@ const styles = StyleSheet.create({
     rowText: { flex: 1 },
     rowDate: { fontSize: 16, fontWeight: '700', color: colors.text },
     dateRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-    shiftBadge: {
-        backgroundColor: colors.bg,
-        borderRadius: radius.pill,
-        paddingHorizontal: 6,
-        paddingVertical: 3,
-    },
-    shiftBadgeText: { fontSize: 13 },
+    shiftIcon: { width: 14, height: 14 },
     rowReceiver: { ...font.small, color: colors.textDim, marginTop: spacing.xs },
 
     statusChip: {
@@ -297,4 +310,5 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     primaryBtnText: { fontSize: 15, fontWeight: '700', color: '#fff' },
+    emptyText: { ...font.small, color: colors.textDim, textAlign: 'center', paddingVertical: spacing.xl },
 });

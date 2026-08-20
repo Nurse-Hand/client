@@ -8,11 +8,12 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import { useRecorder, formatDuration } from '../hooks/useRecorder';
-import { startSession, addSegment, completeSession } from '../api/rounding';
+import { startSession, saveRecord, completeSession } from '../api/rounding';
 import { uploadAudio, uploadPhoto } from '../api/files';
 import { fetchPatients, ApiPatient } from '../api/patients';
 import { LocalSegment, ChatItem } from '../types';
 import { colors, spacing, radius, font } from '../theme';
+import { startAnalysis } from '../api/roundingAnalysis';
 
 type Phase = 'IDLE' | 'RECORDING' | 'PAUSED' | 'FINISHING';
 
@@ -22,9 +23,10 @@ const SHEET_EXPANDED = SCREEN_H * 0.66;
 
 interface Props {
   onBack: () => void;
+  onAnalysisStart: (sessionId: string, jobId: string) => void;
 }
 
-export default function RoundingScreen({ onBack }: Props) {
+export default function RoundingScreen({ onBack, onAnalysisStart }: Props) {
   const insets = useSafeAreaInsets();
   const rec = useRecorder();
 
@@ -132,38 +134,81 @@ export default function RoundingScreen({ onBack }: Props) {
     const sequence = segments.length + 1;
 
     let synced = false;
+    let recordId: string | undefined;
+
     if (sessionId && patientId) {
       try {
-        await addSegment(sessionId, { patientId, startedAt, endedAt });
+        const rec = await saveRecord(sessionId, { patientId, startedAt, endedAt });
+        recordId = rec.recordId;
         synced = true;
+        console.log('구간 저장:', rec.recordId, rec.sequence);
       } catch (e: any) {
         console.log('구간 저장 실패:', e.code, e.message);
       }
     }
 
-    setSegments((prev) => [...prev, { sequence, patientId, startedAt, endedAt, synced }]);
+    setSegments((prev) => [
+      ...prev,
+      { sequence, patientId, startedAt, endedAt, synced, recordId },
+    ]);
     segmentStartRef.current = endedAt;
     setPatientId(null);
   };
 
   const handleFinish = async () => {
     setPhase('FINISHING');
-    await closeCurrentSegment();
+
+    const endedAt = nowIso();
+    const startedAt = segmentStartRef.current;
+    const lastPatientId = patientId;
 
     const uri = await rec.stop();
     console.log('세션 파일 uri:', uri);
 
+    let audioFileId: string | undefined;
+
     try {
       if (uri) {
         const file = await uploadAudio(uri);
+        audioFileId = file.id;
         console.log('세션 오디오 업로드 성공:', file.id);
       }
+    } catch (e: any) {
+      console.log('오디오 업로드 실패:', e.code, e.message);
+    }
+
+    if (sessionId && lastPatientId) {
+      try {
+        const record = await saveRecord(sessionId, {
+          patientId: lastPatientId,
+          startedAt,
+          endedAt,
+          audioFileId,
+        });
+        console.log('마지막 구간 저장:', record.recordId);
+      } catch (e: any) {
+        console.log('마지막 구간 저장 실패:', e.code, e.message);
+      }
+    }
+
+    try {
       if (sessionId) {
-        await completeSession(sessionId, nowIso());
+        await completeSession(sessionId, endedAt);
         console.log('세션 종료 완료');
       }
     } catch (e: any) {
-      console.log('라운딩 종료 실패:', e.code, e.message);
+      console.log('세션 종료 실패:', e.code, e.message);
+    }
+
+    if (sessionId && audioFileId) {
+      try {
+        const job = await startAnalysis(sessionId, audioFileId);
+        console.log('분석 시작:', job.jobId);
+        onAnalysisStart(sessionId, job.jobId);
+        return;
+      } catch (e: any) {
+        console.log('분석 시작 실패:', e.code, e.message);
+      }
     }
 
     onBack();
