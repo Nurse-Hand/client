@@ -94,7 +94,7 @@ export interface HandoffDraft {
     updatedAt: string;
 }
 
-const USE_MOCK = true;
+const USE_MOCK = false;
 
 export function citationsOf(patient: HandoffPatient, key: SectionKey) {
     return patient.citations.filter((c) => SECTION_ENUM_TO_KEY[c.section] === key);
@@ -279,4 +279,31 @@ export function citationTime(iso: string | null) {
     if (isToday) return `오늘 ${time}`;
     if (isYesterday) return `어제 ${time}`;
     return `${d.getMonth() + 1}/${d.getDate()} ${time}`;
+}
+
+export interface HandoffListItem {
+    handoffId: string;
+    status: HandoffStatus;
+    patientCount: number;
+    taskCount: number;
+    updatedAt: string;
+}
+
+export function fetchHandoffs(params?: { date?: string; status?: 'DRAFT' | 'FINALIZED' }) {
+    const q = new URLSearchParams();
+    if (params?.date) q.append('date', params.date);
+    if (params?.status) q.append('status', params.status);
+    const qs = q.toString();
+    return apiGet<{ items: HandoffListItem[]; nextCursor: string | null }>(
+        `/handoffs${qs ? `?${qs}` : ''}`,
+    );
+}
+
+export function dateOf(iso: string) {
+    const d = new Date(iso);
+    const y = String(d.getFullYear()).slice(2);
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    const w = ['일', '월', '화', '수', '목', '금', '토'][d.getDay()];
+    return { date: `${y}.${m}.${day}`, weekday: `${w}요일` };
 }
