@@ -95,6 +95,7 @@ export interface LocalSegment {
     startedAt: string;
     endedAt: string;
     synced: boolean;
+    recordId?: string;
 }
 
 export type ChatItemKind = 'MEMO' | 'PHOTO';

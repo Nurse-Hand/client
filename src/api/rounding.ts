@@ -39,3 +39,37 @@ export function completeSession(sessionId: string, completedAt?: string) {
 export function getSession(sessionId: string) {
     return apiGet<RoundingSession>(`/rounding-sessions/${sessionId}`);
 }
+
+export interface RoundingRecord {
+    recordId: string;
+    sessionId: string;
+    patientId: string;
+    patientDisplayName: string;
+    patientRoomLabel: string;
+    actorId: string;
+    wardId: string;
+    sequence: number;
+    workDate: string;
+    startedAt: string;
+    endedAt: string;
+    note: string | null;
+    audioFileId: string | null;
+    createdAt: string;
+}
+
+export function saveRecord(
+    sessionId: string,
+    body: {
+        patientId: string;
+        startedAt: string;
+        endedAt: string;
+        audioFileId?: string;
+        note?: string;
+    },
+) {
+    return apiPost<RoundingRecord>(
+        `/rounding-sessions/${sessionId}/records`,
+        body,
+        newIdempotencyKey(),
+    );
+}
