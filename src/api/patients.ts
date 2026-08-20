@@ -45,7 +45,7 @@ const USE_MOCK = true;
 function daysAgo(n: number) {
     const d = new Date();
     d.setDate(d.getDate() - n);
-    d.setHours(9, 0, 0, 0);
+    d.setHours(0, 0, 0, 0);
     return d.toISOString();
 }
 
@@ -70,7 +70,7 @@ const MOCK_PATIENTS: ApiPatient[] = [
         patientId: '7d8718ac-fa97-49ba-9c87-e5ea329f44ef',
         displayName: '환자 B',
         roomLabel: '405호 2번 침상',
-        statusLabel: '안정',
+        statusLabel: '신규',
         department: '호흡기내과',
         admittedAt: daysAgo(12),
         baselineSummary: '폐렴 치료 후 산소포화도와 호흡곤란 여부 관찰 중',
@@ -79,8 +79,8 @@ const MOCK_PATIENTS: ApiPatient[] = [
     {
         patientId: 'c3a1f5e2-1111-4aaa-9bbb-000000000003',
         displayName: '환자 C',
-        roomLabel: '212호',
-        statusLabel: '신규',
+        roomLabel: '403호 1번 침상',
+        statusLabel: '퇴원 예정',
         department: '소화기내과',
         admittedAt: daysAgo(0),
         baselineSummary: 'CT 결과상 큰 이상 없어 담당의 설명 후 퇴원 가능성 검토 중',

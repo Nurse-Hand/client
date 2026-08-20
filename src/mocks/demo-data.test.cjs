@@ -17,6 +17,7 @@ require.extensions['.ts'] = (module, filename) => {
 
 const { createMockTasks } = require('./tasks.ts');
 const {
+    admissionDayOf,
     dateKeyOf,
     fetchPatientTimeline,
     fetchPatients,
@@ -36,8 +37,20 @@ test('시연 환자 3명과 오늘 Timeline 임상 분류를 고정한다', asyn
     for (const key of ['roomLabel', 'department', 'admittedAt', 'baselineSummary', 'statusLabel']) {
         assert.equal(new Set(patients.map((patient) => patient[key])).size, 3);
     }
-    assert.match(patients[2].roomLabel, /^212호/);
+    assert.deepEqual(
+        patients.map(({ displayName, statusLabel }) => ({ displayName, statusLabel })),
+        [
+            { displayName: '환자 A', statusLabel: '주의' },
+            { displayName: '환자 B', statusLabel: '신규' },
+            { displayName: '환자 C', statusLabel: '퇴원 예정' },
+        ],
+    );
+    assert.equal(patients[2].roomLabel, '403호 1번 침상');
     assert.match(patients[2].baselineSummary, /CT 결과상 큰 이상 없어/);
+
+    const admissionDays = patients.map(({ admittedAt }) => admissionDayOf(admittedAt));
+    assert.equal(admissionDays[2], 1);
+    assert.ok(admissionDays.every((day) => day >= 1 && day <= 15));
 
     const timelines = await Promise.all(
         patients.map((patient) => fetchPatientTimeline(patient.patientId)),
