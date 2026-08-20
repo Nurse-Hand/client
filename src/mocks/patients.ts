@@ -5,5 +5,5 @@ export const mockDaySummary = [
 ];
 
 export const mockAlerts: Record<string, string> = {
-    OBSERVATION: '지속적인 모니터링 필요',
+    PAIN: '지속적인 통증 모니터링 필요',
 };
