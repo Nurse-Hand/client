@@ -14,6 +14,7 @@ import OnboardingScreen from './src/screens/OnboardingScreen';
 import RecordTranscriptScreen from './src/screens/RecordTranscriptScreen';
 import HandoffDraftScreen from './src/screens/HandoffDraftScreen';
 import AnalysisResultScreen from './src/screens/AnalysisResultScreen';
+import TaskExtractionScreen from './src/screens/TaskExtractionScreen';
 import { TabKey } from './src/types';
 import { colors, font } from './src/theme';
 
@@ -34,6 +35,7 @@ export default function App() {
   const [transcriptOpen, setTranscriptOpen] = useState(false);
   const [draftOpen, setDraftOpen] = useState(false);
   const [analysis, setAnalysis] = useState<{ sessionId: string; jobId: string } | null>(null);
+  const [extractionOpen, setExtractionOpen] = useState(false);
 
   const changeTab = (next: TabKey) => {
     setDetailPatientId(null);
@@ -112,7 +114,16 @@ export default function App() {
                   />
                 )
               )}
-              {tab === 'task' && <TaskScreen />}
+              {tab === 'task' && (
+                extractionOpen ? (
+                  <TaskExtractionScreen
+                    onBack={() => setExtractionOpen(false)}
+                    onApplied={() => setExtractionOpen(false)}
+                  />
+                ) : (
+                  <TaskScreen onGoExtraction={() => setExtractionOpen(true)} />
+                )
+              )}
             </>
           )}
         </View>

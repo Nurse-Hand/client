@@ -1,22 +1,5 @@
 import { apiGet } from './client';
 
-export interface ApiRoundingRecord {
-    recordId: string;
-    sessionId: string;
-    patientId: string | null;
-    patientDisplayName: string | null;
-    patientRoomLabel: string | null;
-    actorId: string;
-    wardId: string;
-    sequence: number;
-    workDate: string;
-    startedAt: string;
-    endedAt: string;
-    note: string | null;
-    audioFileId: string | null;
-    createdAt: string;
-}
-
 export type SpeakerRole = 'NURSE' | 'PATIENT' | 'GUARDIAN' | 'UNKNOWN';
 
 export interface ApiUtterance {
@@ -170,6 +153,23 @@ const MOCK_ENTRIES: RecordEntry[] = [
         patientId: '7d8718ac-fa97-49ba-9c87-e5ea329f44ef',
     },
 ];
+
+export interface ApiRoundingRecord {
+    recordId: string;
+    sessionId: string;
+    patientId: string;
+    patientDisplayName: string;
+    patientRoomLabel: string;
+    actorId: string;
+    wardId: string;
+    sequence: number;
+    workDate: string;
+    startedAt: string;
+    endedAt: string;
+    note: string | null;
+    audioFileId: string | null;
+    createdAt: string;
+}
 
 export function fetchRoundingRecords() {
     if (USE_MOCK) {
