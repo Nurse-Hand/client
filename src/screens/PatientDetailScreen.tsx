@@ -6,18 +6,28 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
     fetchPatient, fetchPatientTimeline, admissionDayOf,
-    dateKeyOf, timeOf, ApiPatient, ApiTimelineEvent, TimelineEventType,
+    dateKeyOf, timeOf, ApiPatient, ApiTimelineEvent,
+    TimelineClinicalCategory, TimelineEventType,
 } from '../api/patients';
 import { mockDaySummary, mockAlerts } from '../mocks/patients';
 import { colors, spacing, radius, font } from '../theme';
 
-const TYPE_LABEL: Record<TimelineEventType, string> = {
-    PATIENT_STATUS: '활력징후',
+const CLINICAL_CATEGORY_LABEL: Record<TimelineClinicalCategory, string> = {
+    VITAL_SIGNS: '활력징후',
+    RESPIRATION: '호흡',
+    MENTAL_STATUS: '의식상태',
     PAIN: '통증',
     TREATMENT: '처치',
     DIET: '식이',
-    ACTIVITY: '활동',
     OBSERVATION: '관찰사항',
+};
+
+const EVENT_TYPE_LABEL: Record<TimelineEventType, string> = {
+    OBSERVATION: '관찰사항',
+    MEDICATION: '투약',
+    PROCEDURE: '처치',
+    REPORT: '보고',
+    TASK: '업무',
 };
 
 const WEEKDAY = ['일', '월', '화', '수', '목', '금', '토'];
@@ -269,7 +279,9 @@ function InfoCell({ label, value }: { label: string; value: string }) {
 
 function TimelineRow({ event, isLast }: { event: ApiTimelineEvent; isLast: boolean }) {
     const highlight = event.source !== 'MANUAL';
-    const alert = mockAlerts[event.type];
+    const category = event.clinicalCategory ?? undefined;
+    const label = category ? CLINICAL_CATEGORY_LABEL[category] : EVENT_TYPE_LABEL[event.type];
+    const alert = mockAlerts[category ?? event.type];
 
     return (
         <View style={styles.tlRow}>
@@ -281,7 +293,7 @@ function TimelineRow({ event, isLast }: { event: ApiTimelineEvent; isLast: boole
             <View style={styles.tlBody}>
                 <View style={[styles.tlCard, highlight && styles.tlCardHighlight]}>
                     <View style={styles.tlHead}>
-                        <Text style={styles.tlTitle}>{TYPE_LABEL[event.type] ?? event.type}</Text>
+                        <Text style={styles.tlTitle}>{label}</Text>
                         <Text style={styles.tlTime}>{timeOf(event.occurredAt)}</Text>
                     </View>
                     <Text style={styles.tlLineText}>{event.summary}</Text>

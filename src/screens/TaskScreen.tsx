@@ -11,55 +11,10 @@ import {
     ApiTask, TaskPriority, DueKind,
 } from '../api/tasks';
 import { fetchPatients, ApiPatient } from '../api/patients';
+import { createMockTasks } from '../mocks/tasks';
 import { colors, spacing, radius, font, layout } from '../theme';
-//commit 전에 false로 만들어야 함!!
 const USE_MOCK = true;
-
-const MOCK_TASKS: ApiTask[] = [
-    {
-        taskId: 'mock-1', patientId: null, title: '통증 재사정 필요',
-        description: null, dueAt: new Date(Date.now() + 3600000).toISOString(),
-        workDate: todayKey(), status: 'TODO', source: 'MANUAL',
-        aiSuggestion: null, rulePriority: 'CRITICAL', confirmedPriority: null,
-        effectivePriority: 'CRITICAL', version: 1,
-        createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
-    },
-    {
-        taskId: 'mock-2', patientId: null, title: '산소 포화도 재측정',
-        description: null, dueAt: new Date(Date.now() + 3 * 3600000).toISOString(),
-        workDate: todayKey(), status: 'DONE', source: 'AI_EXTRACTED',
-        aiSuggestion: { suggestedPriority: 'HIGH', reasons: ['SpO2 88% 반복'], confidence: 'HIGH' },
-        rulePriority: 'HIGH', confirmedPriority: null,
-        effectivePriority: 'HIGH', version: 1,
-        createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
-    },
-    {
-        taskId: 'mock-3', patientId: null, title: '의사 보고 결과 확인',
-        description: null, dueAt: new Date(Date.now() + 9 * 3600000).toISOString(),
-        workDate: todayKey(), status: 'DONE', source: 'MANUAL',
-        aiSuggestion: null, rulePriority: 'NORMAL', confirmedPriority: null,
-        effectivePriority: 'NORMAL', version: 1,
-        createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
-    },
-    {
-        taskId: 'mock-4', patientId: null, title: 'CT 결과 확인 후 인계',
-        description: null, dueAt: new Date(Date.now() + 10 * 3600000).toISOString(),
-        workDate: todayKey(), status: 'DONE', source: 'MANUAL',
-        aiSuggestion: null, rulePriority: 'CRITICAL', confirmedPriority: null,
-        effectivePriority: 'CRITICAL', version: 1,
-        createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
-    },
-    {
-        taskId: 'mock-5', patientId: null, title: 'PCA 효과 재평가',
-        description: null, dueAt: new Date(Date.now() + 5 * 3600000).toISOString(),
-        workDate: todayKey(), status: 'TODO', source: 'MANUAL',
-        aiSuggestion: null, rulePriority: 'HIGH', confirmedPriority: null,
-        effectivePriority: 'HIGH', version: 1,
-        createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
-    },
-];
-
-// 여기까지!
+const MOCK_TASKS = createMockTasks();
 
 type FilterKey = 'ALL' | 'TODO' | 'DONE';
 
@@ -99,7 +54,6 @@ export default function TaskScreen({ onGoExtraction }: { onGoExtraction: () => v
     //     }
     // }, []);
 
-    //commit 전에 되돌리기!
     const load = useCallback(async () => {
         try {
             setError(null);
@@ -119,7 +73,6 @@ export default function TaskScreen({ onGoExtraction }: { onGoExtraction: () => v
             setRefreshing(false);
         }
     }, []);
-    //여기까징
 
     useEffect(() => {
         load();
@@ -143,7 +96,7 @@ export default function TaskScreen({ onGoExtraction }: { onGoExtraction: () => v
         setTasks((prev) =>
             prev.map((t) => (t.taskId === task.taskId ? { ...t, status: next } : t)),
         );
-        //아래 지우기
+        // 아래 API 호출은 mock 영상 모드에서 실행하지 않는다.
         if (USE_MOCK) return;
 
         try {
