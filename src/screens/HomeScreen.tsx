@@ -1,4 +1,5 @@
-import { View, Text, Image, Pressable, ScrollView, StyleSheet } from 'react-native';
+import { useState } from 'react';
+import { View, Text, Image, Pressable, ScrollView, StyleSheet, Modal } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Card from '../components/Card';
@@ -6,17 +7,20 @@ import { homeSummary } from '../mocks/home';
 import { SHIFT_LABEL, SHIFT_EMOJI } from '../types';
 import { colors, spacing, radius, font } from '../theme';
 import QuickRecordCard from '../components/QuickRecordCard';
+import ScheduleImportScreen from './ScheduleImportScreen';
 
 export default function HomeScreen({ onStartRounding }: { onStartRounding: () => void }) {
     const insets = useSafeAreaInsets();
     const { nurseName, today, duty } = homeSummary;
+    const [scheduleImportOpen, setScheduleImportOpen] = useState(false);
 
     return (
-        <ScrollView
-            style={styles.root}
-            contentContainerStyle={[styles.content, { paddingTop: insets.top + spacing.sm }]}
-            showsVerticalScrollIndicator={false}
-        >
+        <>
+            <ScrollView
+                style={styles.root}
+                contentContainerStyle={[styles.content, { paddingTop: insets.top + spacing.sm }]}
+                showsVerticalScrollIndicator={false}
+            >
             <View style={styles.topBar}>
                 <Pressable hitSlop={8}>
                     <Ionicons name="notifications-outline" size={22} color={colors.text} />
@@ -84,14 +88,26 @@ export default function HomeScreen({ onStartRounding }: { onStartRounding: () =>
             </Card>
 
             <View style={styles.bottomRow}>
-                <Pressable style={styles.subBtn}>
+                <Pressable style={styles.subBtn} onPress={() => setScheduleImportOpen(true)}>
                     <Text style={styles.subBtnText}>근무표 수정</Text>
                 </Pressable>
                 <Pressable style={styles.subBtn}>
                     <Text style={styles.subBtnText}>환자 담당표 수정</Text>
                 </Pressable>
             </View>
-        </ScrollView>
+            </ScrollView>
+
+            <Modal
+                visible={scheduleImportOpen}
+                animationType="slide"
+                presentationStyle="fullScreen"
+                onRequestClose={() => setScheduleImportOpen(false)}
+            >
+                {scheduleImportOpen && (
+                    <ScheduleImportScreen onClose={() => setScheduleImportOpen(false)} />
+                )}
+            </Modal>
+        </>
     );
 }
 
