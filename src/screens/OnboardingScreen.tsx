@@ -39,6 +39,17 @@ export default function OnboardingScreen({ onStart }: Props) {
     const insets = useSafeAreaInsets();
     const [index, setIndex] = useState(0);
     const scrollRef = useRef<ScrollView>(null);
+    const isLast = index === SLIDES.length - 1;
+
+    const handleNext = () => {
+        if (isLast) {
+            onStart();
+            return;
+        }
+        const next = index + 1;
+        scrollRef.current?.scrollTo({ x: next * SCREEN_W, animated: true });
+        setIndex(next);
+    };
 
     return (
         <View style={[styles.root, { paddingTop: insets.top }]}>
@@ -70,14 +81,15 @@ export default function OnboardingScreen({ onStart }: Props) {
             </View>
 
             <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, spacing.xl) }]}>
-                <Pressable style={styles.primaryBtn} onPress={onStart}>
-                    <Text style={styles.primaryBtnText}>시작하기</Text>
+                <Pressable style={styles.primaryBtn} onPress={handleNext}>
+                    <Text style={styles.primaryBtnText}>{isLast ? '시작하기' : '다음'}</Text>
                 </Pressable>
 
                 <Pressable style={styles.ghostBtn} onPress={onStart}>
                     <Text style={styles.ghostBtnText}>로그인하기</Text>
                 </Pressable>
             </View>
+
         </View>
     );
 }
@@ -95,7 +107,7 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
     },
-    image: { width: SCREEN_W * 0.66, height: SCREEN_W * 0.66 },
+    image: { width: SCREEN_W * 0.8, height: SCREEN_W * 0.8 },
 
     title: {
         fontSize: 21,

@@ -75,10 +75,10 @@ export const SHIFT_LABEL: Record<ShiftType, string> = {
     NIGHT: 'Night',
 };
 
-export const SHIFT_EMOJI: Record<ShiftType, string> = {
-    DAY: '☀️',
-    EVENING: '🌇',
-    NIGHT: '🌙',
+export const SHIFT_ICON: Record<ShiftType, any> = {
+    DAY: require('../../assets/icons/day.png'),
+    EVENING: require('../../assets/icons/evening.png'),
+    NIGHT: require('../../assets/icons/night.png'),
 };
 
 export type PendingCheckKind = 'PATIENT_MATCH' | 'AI_GUESS';

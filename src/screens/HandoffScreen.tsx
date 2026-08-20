@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { View, Text, Image, Pressable, ScrollView, Modal, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { handoffRecords, pendingChecks, hasIncomingHandoff } from '../mocks/handoff';
-import { HandoffRecord, SHIFT_EMOJI } from '../types';
+import { HandoffRecord, SHIFT_ICON } from '../types';
 import { colors, spacing, radius, font, layout } from '../theme';
 
 export default function HandoffScreen({ onGoPrecheck }: { onGoPrecheck: () => void }) {
@@ -98,11 +98,11 @@ function HandoffRow({ record, isLast }: { record: HandoffRecord; isLast: boolean
                 <View style={styles.rowText}>
                     <View style={styles.dateRow}>
                         <Text style={styles.rowDate}>{record.date} {record.weekday}</Text>
-                        <View style={styles.shiftBadge}>
-                            <Text style={styles.shiftBadgeText}>
-                                {SHIFT_EMOJI[record.shift]}
-                            </Text>
-                        </View>
+                        <Image
+                            source={SHIFT_ICON[record.shift]}
+                            style={styles.shiftIcon}
+                            resizeMode="contain"
+                        />
                     </View>
                     <Text style={styles.rowReceiver}>
                         수신자 {record.receiverName ?? '선택 안 됨'}
@@ -240,13 +240,7 @@ const styles = StyleSheet.create({
     rowText: { flex: 1 },
     rowDate: { fontSize: 16, fontWeight: '700', color: colors.text },
     dateRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-    shiftBadge: {
-        backgroundColor: colors.bg,
-        borderRadius: radius.pill,
-        paddingHorizontal: 6,
-        paddingVertical: 3,
-    },
-    shiftBadgeText: { fontSize: 13 },
+    shiftIcon: { width: 14, height: 14 },
     rowReceiver: { ...font.small, color: colors.textDim, marginTop: spacing.xs },
 
     statusChip: {

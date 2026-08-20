@@ -3,7 +3,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Card from '../components/Card';
 import { homeSummary } from '../mocks/home';
-import { SHIFT_LABEL, SHIFT_EMOJI } from '../types';
+import { SHIFT_LABEL, SHIFT_ICON } from '../types';
 import { colors, spacing, radius, font } from '../theme';
 import QuickRecordCard from '../components/QuickRecordCard';
 
@@ -45,9 +45,8 @@ export default function HomeScreen({ onStartRounding }: { onStartRounding: () =>
             <Card title="라운딩 기록">
                 <View style={styles.dutyRow}>
                     <Text style={styles.dutyLabel}>오늘 근무</Text>
-                    <Text style={styles.dutyValue}>
-                        {SHIFT_EMOJI[duty.shift]} {SHIFT_LABEL[duty.shift]}
-                    </Text>
+                    <Image source={SHIFT_ICON[duty.shift]} style={styles.shiftIcon} resizeMode="contain" />
+                    <Text style={styles.dutyValue}>{SHIFT_LABEL[duty.shift]}</Text>
                     <Text style={styles.dot}>·</Text>
                     <Text style={styles.dutyValue}>환자 {duty.patientCount}명</Text>
                     <Text style={styles.dot}>·</Text>
@@ -142,6 +141,7 @@ const styles = StyleSheet.create({
     dutyLabel: { ...font.small, color: colors.textDim, marginRight: spacing.xs },
     dutyValue: { ...font.small, color: colors.text },
     dot: { color: colors.textDim },
+    shiftIcon: { width: 16, height: 16 },
 
     primaryBtn: {
         backgroundColor: colors.primary,
