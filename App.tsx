@@ -11,6 +11,7 @@ import { TabKey } from './src/types';
 import { colors, font } from './src/theme';
 import RoundingScreen from './src/screens/RoundingScreen';
 import TaskScreen from './src/screens/TaskScreen';
+import HandoffPrecheckScreen from './src/screens/HandoffPrecheckScreen';
 
 function Placeholder({ label }: { label: string }) {
   return (
@@ -24,6 +25,7 @@ export default function App() {
   const [tab, setTab] = useState<TabKey>('home');
   const [detailPatientId, setDetailPatientId] = useState<string | null>(null);
   const [roundingOpen, setRoundingOpen] = useState(false);
+  const [precheckOpen, setPrecheckOpen] = useState(false);
 
   const changeTab = (next: TabKey) => {
     setDetailPatientId(null);
@@ -51,7 +53,16 @@ export default function App() {
             <>
               {tab === 'home' && <HomeScreen onStartRounding={() => setRoundingOpen(true)} />}
               {tab === 'patient' && renderPatientTab()}
-              {tab === 'handoff' && <HandoffScreen />}
+              {tab === 'handoff' && (
+                precheckOpen ? (
+                  <HandoffPrecheckScreen
+                    onBack={() => setPrecheckOpen(false)}
+                    onDone={() => setPrecheckOpen(false)}
+                  />
+                ) : (
+                  <HandoffScreen onGoPrecheck={() => setPrecheckOpen(true)} />
+                )
+              )}
               {tab === 'task' && <TaskScreen />}
             </>
           )}
