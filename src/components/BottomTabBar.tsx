@@ -9,7 +9,6 @@ const TABS: { key: TabKey; label: string; icon: keyof typeof Ionicons.glyphMap }
     { key: 'patient', label: '환자', icon: 'people' },
     { key: 'task', label: '업무', icon: 'checkbox' },
     { key: 'handoff', label: '인수인계', icon: 'swap-horizontal' },
-    { key: 'my', label: '마이', icon: 'person' },
 ];
 
 interface Props {

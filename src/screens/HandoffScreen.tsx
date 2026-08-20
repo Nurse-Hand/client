@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View, Text, Pressable, ScrollView, Modal, StyleSheet } from 'react-native';
+import { View, Text, Image, Pressable, ScrollView, Modal, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { handoffRecords, pendingChecks, hasIncomingHandoff } from '../mocks/handoff';
 import { HandoffRecord, SHIFT_EMOJI } from '../types';
@@ -29,7 +29,11 @@ export default function HandoffScreen() {
                     <Pressable style={styles.noticeCard}>
                         <View style={styles.noticeDot} />
                         <Text style={styles.noticeText}>이전 근무자가 보낸 인계 사항이 있어요.</Text>
-                        <Text style={styles.bellIcon}>🔔</Text>
+                        <Image
+                            source={require('../../assets/icons/bell.png')}
+                            style={styles.bellIcon}
+                            resizeMode="contain"
+                        />
                     </Pressable>
                 )}
 
@@ -41,7 +45,11 @@ export default function HandoffScreen() {
                             <Text style={styles.bannerBtnText}>생성하기</Text>
                         </Pressable>
                     </View>
-                    <Text style={styles.bannerEmoji}>📋</Text>
+                    <Image
+                        source={require('../../assets/mascot2.png')}
+                        style={styles.bannerMascot}
+                        resizeMode="contain"
+                    />
                 </View>
 
                 <View style={styles.card}>
@@ -175,7 +183,7 @@ const styles = StyleSheet.create({
         backgroundColor: colors.primary, marginRight: spacing.md,
     },
     noticeText: { flex: 1, ...font.body, color: colors.text },
-    bellIcon: { fontSize: 17 },
+    bellIcon: { width: 20, height: 20 },
 
     banner: {
         flexDirection: 'row',
@@ -196,7 +204,7 @@ const styles = StyleSheet.create({
         marginTop: spacing.xl,
     },
     bannerBtnText: { fontSize: 15, fontWeight: '700', color: colors.primary },
-    bannerEmoji: { fontSize: 46, alignSelf: 'center' },
+    bannerMascot: { width: 110, height: 110, alignSelf: 'flex-end' },
 
     card: {
         backgroundColor: colors.card,
