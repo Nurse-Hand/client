@@ -8,8 +8,9 @@
 - 저작자 표기: 650 Industries, Inc.
 - 라이선스: MIT
 - 소스: <https://github.com/expo/expo/tree/172a69f5f70c1d0e043e1532f924de97210cabc3/packages/expo-calendar>
-- 라이선스 원문 확인 출처: <https://github.com/expo/expo/blob/main/LICENSE>
-- 확인 근거: 설치된 `expo-calendar@15.0.8`의 `package.json`에 repository, gitHead, author, `license: MIT`가 선언되어 있으며, 아래 고지문은 Expo 공식 저장소 루트의 현재 LICENSE 원문을 보존한 것입니다.
+- 라이선스 원문 확인 출처: <https://github.com/expo/expo/blob/172a69f5f70c1d0e043e1532f924de97210cabc3/LICENSE>
+- 라이선스 blob SHA: `30b20e3b5f0f470947ba9480d90587ba07c137b4`
+- 확인 근거: 설치된 `expo-calendar@15.0.8`의 `package.json`에 repository, gitHead, author, `license: MIT`가 선언되어 있으며, 아래 고지문은 동일 gitHead의 Expo 공식 저장소 루트 LICENSE 원문을 보존한 것입니다.
 
 아래는 해당 라이선스 고지문 원문입니다.
 
